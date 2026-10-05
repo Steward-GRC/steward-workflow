@@ -6,6 +6,7 @@ modules:
   - path: proto
   - path: .protos/steward-audit
   - path: .protos/steward-core
+  - path: .protos/steward-identity
 lint:
   use: [STANDARD]
 breaking:

@@ -23,6 +23,9 @@ managed:
     - file_option: go_package
       path: steward/core/v1
       value: github.com/Steward-GRC/steward-workflow/gen/go/thirdparty/core/v1;corev1
+    - file_option: go_package
+      path: steward/identity/v1
+      value: github.com/Steward-GRC/steward-workflow/gen/go/thirdparty/identity/v1;identityv1
 plugins:
   - local: protoc-gen-go
     out: .
