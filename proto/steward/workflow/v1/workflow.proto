@@ -1,0 +1,342 @@
+// Copyright 2026 The Steward Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package steward.workflow.v1;
+
+import "google/protobuf/timestamp.proto";
+import "steward/workflow/v1/types.proto";
+import "steward/workflow/v1/workflow_def.proto";
+
+option go_package = "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1";
+
+// WorkflowService runs policy versions through their approval workflows.
+//
+// A stage can hold two kinds of seat. An individual seat is one person's own
+// vote. A group seat is a member's vote inside an approve-as-group unit; the
+// unit decides by its own quorum of yes votes and then counts as one vote in
+// the stage. A person can hold both on one stage and votes each separately;
+// the group_id fields say which seat a call is about, and an empty group_id
+// means the individual seat.
+//
+// Coded refusals carry an ErrorInfo with the domain "workflow"; the codes are
+// in docs/error-codes.md.
+service WorkflowService {
+  // Submit starts an approval run for a policy version. A stage with no
+  // approver is refused with 6003 STAGE_NOT_STAFFED.
+  rpc Submit(SubmitRequest) returns (SubmitResponse);
+  // Signal delivers a decision. Approve and reject need a comment.
+  rpc Signal(SignalRequest) returns (SignalResponse);
+  // GetStatus returns the current run's status, stages and seats.
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+  // ListPendingTasks returns the stages awaiting the approver's decision.
+  rpc ListPendingTasks(ListPendingTasksRequest) returns (ListPendingTasksResponse);
+  // ListUpcomingTasks returns active runs where the approver sits on a stage
+  // that hasn't started yet.
+  rpc ListUpcomingTasks(ListUpcomingTasksRequest) returns (ListUpcomingTasksResponse);
+  // SwapAssignee replaces a pending seat's holder. The initiator role is
+  // checked against the caller: an admin, the seat holder delegating their
+  // own seat, or the workflow's author. Only an admin may pick someone outside
+  // the stage's pool, and only with out_of_eligibility_ack. Refusals:
+  //   6002 SWAP_ASSIGNEE_FORBIDDEN       (PermissionDenied; metadata role)
+  //   6004 SWAP_REASON_REQUIRED          (InvalidArgument)
+  //   6005 SWAP_USERS_REQUIRED           (InvalidArgument)
+  //   6006 SWAP_SAME_USER                (InvalidArgument)
+  //   6007 SWAP_INITIATOR_ROLE_REQUIRED  (InvalidArgument)
+  //   6008 SWAP_ASSIGNMENT_NOT_FOUND     (NotFound; metadata stage, current_user_id)
+  //   6009 SWAP_ASSIGNMENT_NOT_PENDING   (FailedPrecondition; metadata stage, current_user_id, state)
+  //   6010 SWAP_ASSIGNEE_NOT_ELIGIBLE    (FailedPrecondition; metadata stage, stage_name, new_user_id)
+  //   6011 STAGE_INDEX_OUT_OF_RANGE      (InvalidArgument; metadata stage, stage_count)
+  //   6012 APPROVAL_RUN_NOT_FOUND        (NotFound; metadata policy_version_id)
+  rpc SwapAssignee(SwapAssigneeRequest) returns (SwapAssigneeResponse);
+  // BulkDecide approves or rejects several of the caller's seats at once.
+  // Every decision needs a comment; the decisions share a bulk_batch_id.
+  rpc BulkDecide(BulkDecideRequest) returns (BulkDecideResponse);
+  // GetAssignmentHistory returns the append-only log for one stage.
+  rpc GetAssignmentHistory(GetAssignmentHistoryRequest) returns (GetAssignmentHistoryResponse);
+  // GetStageEligiblePool returns the people SwapAssignee accepts as
+  // new_user_id for a seat without out_of_eligibility_ack, from the same
+  // stage definition SwapAssignee checks. It does no access check of its own,
+  // like GetStatus; the caller gates it as it gates SwapAssignee. Refusals:
+  //   6011 STAGE_INDEX_OUT_OF_RANGE (InvalidArgument; metadata stage, stage_count)
+  //   6012 APPROVAL_RUN_NOT_FOUND   (NotFound; metadata policy_version_id)
+  rpc GetStageEligiblePool(GetStageEligiblePoolRequest) returns (GetStageEligiblePoolResponse);
+  // ReassignUserWorkflowItems moves a merged account's in-flight items to the
+  // account it was merged into: its pending and paused seats and the
+  // submitter of its active runs. Finished items stay as they were. It is
+  // idempotent, and dry_run only counts.
+  rpc ReassignUserWorkflowItems(ReassignUserWorkflowItemsRequest) returns (ReassignUserWorkflowItemsResponse);
+
+  rpc ListWorkflowDefs(ListWorkflowDefsRequest) returns (ListWorkflowDefsResponse);
+  rpc GetWorkflowDef(GetWorkflowDefRequest) returns (GetWorkflowDefResponse);
+  rpc CreateWorkflowDef(CreateWorkflowDefRequest) returns (CreateWorkflowDefResponse);
+  rpc UpdateWorkflowDef(UpdateWorkflowDefRequest) returns (UpdateWorkflowDefResponse);
+  rpc ArchiveWorkflowDef(ArchiveWorkflowDefRequest) returns (ArchiveWorkflowDefResponse);
+
+  // ResolveWorkflow returns the workflow a policy would be submitted under:
+  // its own override, else its home category's default. Empty means none, so
+  // the policy can't be submitted.
+  rpc ResolveWorkflow(ResolveWorkflowRequest) returns (ResolveWorkflowResponse);
+}
+
+message ResolveWorkflowRequest {
+  string policy_id = 1;
+  // The policy's categories from its home category (index 0) to the root.
+  repeated string ancestor_category_ids = 2;
+}
+
+message ResolveWorkflowResponse {
+  string workflow_def_id = 1;
+}
+
+message SubmitRequest {
+  string policy_version_id = 1;
+  string policy_id = 2;
+  // The policy's home category.
+  string category_id = 3;
+  string submitted_by = 4;
+  // The policy's categories from its home category (index 0) to the root.
+  repeated string ancestor_category_ids = 5;
+}
+
+message SubmitResponse {
+  string run_id = 1;
+}
+
+message SignalRequest {
+  // Advisory only: a decision always applies to the version's current run.
+  string run_id = 1;
+  // Advisory only.
+  string task_id = 2;
+  SignalType signal = 3;
+  string actor_user_id = 4;
+  // Required for approve and reject.
+  string comment = 5;
+  // The version decided on. When empty, it is read from run_id.
+  string policy_version_id = 6;
+  // The group whose seat the actor votes with; empty is the actor's
+  // individual seat. When empty and the actor holds no individual seat, their
+  // only pending group seat is used.
+  string group_id = 7;
+}
+
+message SignalResponse {}
+
+message GetStatusRequest {
+  string policy_version_id = 1;
+}
+
+// StageAssignee is one seat on a stage.
+message StageAssignee {
+  string user_id = 1;
+  // pending, approved, rejected, superseded, swapped_out, paused or withdrawn.
+  string state = 2;
+  // The decision comment, once decided.
+  string comment = 3;
+  google.protobuf.Timestamp decided_at = 4;
+  // The group the seat votes for; empty for an individual seat.
+  string group_id = 5;
+}
+
+message StageAssignees {
+  repeated StageAssignee assignees = 1;
+}
+
+// StageUnitProgress is one approve-as-group unit's live tally on a stage.
+message StageUnitProgress {
+  string group_id = 1;
+  // "one", "majority" or "all".
+  string quorum = 2;
+  // Yes votes the group needs.
+  int32 required = 3;
+  int32 approvals = 4;
+  // Members who can still vote yes.
+  int32 pending = 5;
+  int32 roster = 6;
+  // SATISFIED, PENDING or REJECTED.
+  string status = 7;
+}
+
+message StageUnitProgressList {
+  repeated StageUnitProgress units = 1;
+}
+
+message GetStatusResponse {
+  ApprovalStatus status = 1;
+  string run_id = 2;
+  int32 current_stage_idx = 3;
+  // The run's workflow stages, in order.
+  repeated string stage_names = 4;
+  // Index-aligned with stage_names. A stage not yet entered lists its
+  // configured individual approvers as pending.
+  repeated StageAssignees stage_assignees = 5;
+  // Index-aligned with stage_names; empty for a stage with no groups.
+  repeated StageUnitProgressList stage_unit_progress = 6;
+}
+
+message PendingTask {
+  string task_id = 1;
+  string run_id = 2;
+  string policy_version_id = 3;
+  int32 stage_index = 4;
+  google.protobuf.Timestamp due_at = 5;
+}
+
+message ListPendingTasksRequest {
+  string approver_user_id = 1;
+}
+
+message ListPendingTasksResponse {
+  repeated PendingTask tasks = 1;
+}
+
+message UpcomingTask {
+  string policy_version_id = 1;
+  int32 stage_index = 2;
+  string stage_name = 3;
+}
+
+message ListUpcomingTasksRequest {
+  string approver_user_id = 1;
+}
+
+message ListUpcomingTasksResponse {
+  repeated UpcomingTask tasks = 1;
+}
+
+// InitiatorRole is why the caller may reassign a seat.
+enum InitiatorRole {
+  INITIATOR_ROLE_UNSPECIFIED = 0;
+  INITIATOR_ROLE_ADMIN = 1;
+  INITIATOR_ROLE_SELF_DELEGATE = 2;
+  INITIATOR_ROLE_WORKFLOW_AUTHOR = 3;
+}
+
+message SwapAssigneeRequest {
+  string policy_version_id = 1;
+  int32 stage_index = 2;
+  // Who gives up the seat.
+  string current_user_id = 3;
+  // Who takes it.
+  string new_user_id = 4;
+  // Required.
+  string reason = 5;
+  InitiatorRole initiator_role = 6;
+  // Lets an admin pick someone outside the stage's pool; recorded as an
+  // out-of-eligibility swap.
+  bool out_of_eligibility_ack = 7;
+  // The group whose seat is reassigned; empty for the individual seat.
+  string group_id = 8;
+}
+
+message SwapAssigneeResponse {
+  string new_assignment_id = 1;
+  google.protobuf.Timestamp new_sla_deadline_at = 2;
+}
+
+// DecisionType is a bulk decision: approve or reject only.
+enum DecisionType {
+  DECISION_TYPE_UNSPECIFIED = 0;
+  DECISION_TYPE_APPROVE = 1;
+  DECISION_TYPE_REJECT = 2;
+}
+
+// Decision is one seat's decision in a BulkDecideRequest.
+message Decision {
+  string policy_version_id = 1;
+  int32 stage_index = 2;
+  DecisionType decision = 3;
+  // Required.
+  string comment = 4;
+  // The group whose seat is decided; empty for the individual seat.
+  string group_id = 5;
+}
+
+message BulkDecideRequest {
+  repeated Decision decisions = 1;
+}
+
+// DecisionResult reports one decision of the batch.
+message DecisionResult {
+  string policy_version_id = 1;
+  int32 stage_index = 2;
+  bool ok = 3;
+  string error = 4;
+  string assignment_id = 5;
+  string group_id = 6;
+}
+
+message BulkDecideResponse {
+  repeated DecisionResult results = 1;
+  // Shared by every decision in the batch.
+  string bulk_batch_id = 2;
+}
+
+message GetAssignmentHistoryRequest {
+  string policy_version_id = 1;
+  int32 stage_index = 2;
+}
+
+// AssignmentHistoryEntry is one row of a stage's append-only log.
+message AssignmentHistoryEntry {
+  int64 id = 1;
+  string assignment_id = 2;
+  // created, swapped_in, swapped_out, approved, rejected, paused, resumed,
+  // withdrawn or reassigned.
+  string event = 3;
+  // Who really acted: during act-as, the admin.
+  string actor_user_id = 4;
+  // admin, self_delegate or workflow_author, for a swap.
+  string actor_role = 5;
+  string previous_user_id = 6;
+  string new_user_id = 7;
+  bool out_of_eligibility = 8;
+  string reason = 9;
+  google.protobuf.Timestamp created_at = 10;
+  // The account the actor acted as during act-as; empty otherwise.
+  string impersonated_user_id = 11;
+}
+
+message GetAssignmentHistoryResponse {
+  repeated AssignmentHistoryEntry entries = 1;
+}
+
+message GetStageEligiblePoolRequest {
+  string policy_version_id = 1;
+  // Zero-based; below the run's stage count.
+  int32 stage_index = 2;
+  // The group whose pool is asked for; empty for the individual seats.
+  string group_id = 3;
+}
+
+message GetStageEligiblePoolResponse {
+  int32 stage_index = 1;
+  string stage_name = 2;
+  // The pool in definition order. It can include people who already hold a
+  // seat; GetStatus says who does.
+  repeated string eligible_user_ids = 3;
+}
+
+message ReassignUserWorkflowItemsRequest {
+  // The account merged away.
+  string from_user_id = 1;
+  // The account it was merged into.
+  string to_user_id = 2;
+  // The admin who ran the merge.
+  string actor_user_id = 3;
+  // Count only; change nothing.
+  bool dry_run = 4;
+  // Correlates with the identity merge, for audit.
+  string merge_operation_id = 5;
+}
+
+message ReassignUserWorkflowItemsResponse {
+  // Seats moved in place, timers kept.
+  int32 assignments_reassigned = 1;
+  // Seats retired because the target already held that seat.
+  int32 assignments_deduped = 2;
+  // Active runs whose submitter moved.
+  int32 runs_reassigned = 3;
+  int32 total = 4;
+}

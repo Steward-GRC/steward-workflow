@@ -1,0 +1,32 @@
+// Copyright 2026 The Steward Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package steward.workflow.v1;
+
+option go_package = "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1";
+
+// ApprovalStatus is the state of a policy version's approval run.
+enum ApprovalStatus {
+  APPROVAL_STATUS_UNSPECIFIED = 0;
+  APPROVAL_STATUS_DRAFT = 1;
+  APPROVAL_STATUS_IN_REVIEW = 2;
+  APPROVAL_STATUS_APPROVED = 3;
+  APPROVAL_STATUS_SCHEDULED = 4;
+  APPROVAL_STATUS_PUBLISHED = 5;
+  APPROVAL_STATUS_SUPERSEDED = 6;
+  APPROVAL_STATUS_REJECTED = 7;
+  APPROVAL_STATUS_WITHDRAWN = 8;
+  APPROVAL_STATUS_ARCHIVED = 9;
+}
+
+// SignalType is what a person does to a run.
+enum SignalType {
+  SIGNAL_TYPE_UNSPECIFIED = 0;
+  SIGNAL_TYPE_APPROVE = 1;
+  SIGNAL_TYPE_REJECT = 2;
+  SIGNAL_TYPE_REQUEST_CHANGES = 3;
+  SIGNAL_TYPE_WITHDRAW = 4;
+  SIGNAL_TYPE_RETIRE = 5;
+}
