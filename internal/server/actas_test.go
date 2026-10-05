@@ -1,0 +1,172 @@
+// Copyright 2026 The Steward Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package server
+
+import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	grpcactor "github.com/Bugs5382/go-grpc-actor"
+	log "github.com/Bugs5382/go-log"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
+	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
+)
+
+// The act-as round trip over mTLS: the gateway forwards the target and the
+// real admin; workflow believes them only from a trusted SPIFFE ID, and
+// forwards them on to core.
+
+const (
+	gatewayID = "spiffe://example.org/ns/steward/sa/gateway"
+	otherID   = "spiffe://example.org/ns/steward/sa/reporting"
+)
+
+type pki struct {
+	dir    string
+	ca     *x509.Certificate
+	caKey  *ecdsa.PrivateKey
+	caFile string
+}
+
+func newPKI(t *testing.T) *pki {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "Example test CA"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		IsCA: true, KeyUsage: x509.KeyUsageCertSign, BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+	ca, err := x509.ParseCertificate(der)
+	require.NoError(t, err)
+	p := &pki{dir: t.TempDir(), ca: ca, caKey: key}
+	p.caFile = p.write(t, "ca.crt", "CERTIFICATE", der)
+	return p
+}
+
+func (p *pki) write(t *testing.T, name, kind string, der []byte) string {
+	t.Helper()
+	path := filepath.Join(p.dir, name)
+	require.NoError(t, os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: kind, Bytes: der}), 0o600))
+	return path
+}
+
+// leaf issues a certificate for localhost with the SPIFFE ID as its URI SAN.
+func (p *pki) leaf(t *testing.T, name, spiffe string, serial int64) (certFile, keyFile string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	u, err := url.Parse(spiffe)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(serial), Subject: pkix.Name{CommonName: name},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		KeyUsage:    x509.KeyUsageDigitalSignature,
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		DNSNames:    []string{"localhost"}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, URIs: []*url.URL{u},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, p.ca, &key.PublicKey, p.caKey)
+	require.NoError(t, err)
+	kder, err := x509.MarshalECPrivateKey(key)
+	require.NoError(t, err)
+	return p.write(t, name+".crt", "CERTIFICATE", der), p.write(t, name+".key", "EC PRIVATE KEY", kder)
+}
+
+// actorProbe records the actor each call arrives with and, when next is
+// set, calls next with the context it was given.
+type actorProbe struct {
+	workflowv1.UnimplementedWorkflowServiceServer
+	seen chan grpcactor.Actor
+	next workflowv1.WorkflowServiceClient
+}
+
+func (p actorProbe) GetStatus(ctx context.Context, req *workflowv1.GetStatusRequest) (*workflowv1.GetStatusResponse, error) {
+	a, _ := grpcactor.FromContext(ctx)
+	p.seen <- a
+	if p.next != nil {
+		return p.next.GetStatus(ctx, req)
+	}
+	return &workflowv1.GetStatusResponse{}, nil
+}
+
+func serveTLS(t *testing.T, p *pki, name string, trusted []string, probe actorProbe) string {
+	t.Helper()
+	cert, key := p.leaf(t, name, "spiffe://example.org/ns/steward/sa/"+name, time.Now().UnixNano())
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(ctx, lis, log.Nop(), Options{CertFile: cert, KeyFile: key, ClientCAFile: p.caFile, TrustedCallers: trusted},
+			func(s *grpc.Server) { workflowv1.RegisterWorkflowServiceServer(s, probe) })
+	}()
+	t.Cleanup(func() { cancel(); <-done })
+	return lis.Addr().String()
+}
+
+func dialAs(t *testing.T, p *pki, addr, spiffe string) workflowv1.WorkflowServiceClient {
+	t.Helper()
+	cert, key := p.leaf(t, "caller", spiffe, time.Now().UnixNano())
+	opts, err := DialOptions(cert, key, p.caFile)
+	require.NoError(t, err)
+	conn, err := grpc.NewClient(addr, opts...)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	return workflowv1.NewWorkflowServiceClient(conn)
+}
+
+func TestActAs_TrustedCallerActorSurvivesBothHops(t *testing.T) {
+	p := newPKI(t)
+	coreSeen := make(chan grpcactor.Actor, 1)
+	coreAddr := serveTLS(t, p, "core", []string{"spiffe://example.org/ns/steward/sa/workflow"}, actorProbe{seen: coreSeen})
+
+	workflowSeen := make(chan grpcactor.Actor, 1)
+	toCore := dialAs(t, p, coreAddr, "spiffe://example.org/ns/steward/sa/workflow")
+	workflowAddr := serveTLS(t, p, "workflow", []string{gatewayID}, actorProbe{seen: workflowSeen, next: toCore})
+
+	ctx := grpcactor.WithActor(context.Background(), grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"})
+	_, err := dialAs(t, p, workflowAddr, gatewayID).GetStatus(ctx, &workflowv1.GetStatusRequest{})
+	require.NoError(t, err)
+
+	want := grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"}
+	require.Equal(t, want, (<-workflowSeen), "workflow sees the target and the admin")
+	require.Equal(t, want, (<-coreSeen), "the admin reaches core on the outbound call")
+}
+
+func TestActAs_UntrustedCallerActorIsDropped(t *testing.T) {
+	p := newPKI(t)
+	seen := make(chan grpcactor.Actor, 1)
+	addr := serveTLS(t, p, "workflow", []string{gatewayID}, actorProbe{seen: seen})
+
+	ctx := grpcactor.WithActor(context.Background(), grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"})
+	_, err := dialAs(t, p, addr, otherID).GetStatus(ctx, &workflowv1.GetStatusRequest{})
+	require.NoError(t, err)
+	require.Equal(t, grpcactor.Actor{}, <-seen)
+}
+
+func TestActAs_SystemCallForwardsNothing(t *testing.T) {
+	p := newPKI(t)
+	seen := make(chan grpcactor.Actor, 1)
+	addr := serveTLS(t, p, "core", []string{"spiffe://example.org/ns/steward/sa/workflow"}, actorProbe{seen: seen})
+
+	_, err := dialAs(t, p, addr, "spiffe://example.org/ns/steward/sa/workflow").GetStatus(context.Background(), &workflowv1.GetStatusRequest{})
+	require.NoError(t, err)
+	require.Equal(t, grpcactor.Actor{}, <-seen, "a background call carries no actor")
+}

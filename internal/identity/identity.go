@@ -63,3 +63,13 @@ func (c *Client) Subject(ctx context.Context, userID string) (stewardauthz.Subje
 	}
 	return s, nil
 }
+
+// IsWorkflowAdmin reports whether the user may manage workflows, and so
+// reassign any approval as an admin: steward-authz's workflow.manage.
+func (c *Client) IsWorkflowAdmin(ctx context.Context, userID string) (bool, error) {
+	s, err := c.Subject(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return stewardauthz.HasCapability(s, stewardauthz.WorkflowManage), nil
+}

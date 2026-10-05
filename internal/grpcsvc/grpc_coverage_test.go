@@ -104,10 +104,10 @@ func isUnaryRPCShape(m reflect.Type) bool {
 	if !m.In(0).Implements(ctxType) {
 		return false
 	}
-	if m.In(1).Kind() != reflect.Ptr {
+	if m.In(1).Kind() != reflect.Pointer {
 		return false
 	}
-	if m.Out(0).Kind() != reflect.Ptr {
+	if m.Out(0).Kind() != reflect.Pointer {
 		return false
 	}
 	return m.Out(1) == errType

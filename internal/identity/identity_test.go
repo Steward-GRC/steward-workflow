@@ -77,3 +77,19 @@ func TestSubject_UnknownUserIsAnError(t *testing.T) {
 	_, err := identity.New(&fakeRead{users: map[string]*identityv1.User{}}).Subject(context.Background(), fixture.Erin)
 	require.ErrorIs(t, err, identity.ErrNoUser)
 }
+
+func TestIsWorkflowAdmin(t *testing.T) {
+	read := &fakeRead{users: map[string]*identityv1.User{
+		fixture.Frank: {Id: fixture.Frank, Roles: []string{"template-admin"}},
+		fixture.Alice: {Id: fixture.Alice, Roles: []string{"site-admin"}},
+		fixture.Carol: {Id: fixture.Carol, ScopedRoles: []*identityv1.ScopedRole{{Role: "approver", Category: "Facilities"}}},
+	}}
+	c := identity.New(read)
+	for user, want := range map[string]bool{fixture.Frank: true, fixture.Alice: true, fixture.Carol: false} {
+		got, err := c.IsWorkflowAdmin(context.Background(), user)
+		require.NoError(t, err)
+		require.Equal(t, want, got, user)
+	}
+	_, err := identity.New(&fakeRead{err: errors.New("down")}).IsWorkflowAdmin(context.Background(), fixture.Frank)
+	require.Error(t, err)
+}
