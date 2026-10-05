@@ -6,6 +6,8 @@ github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEK
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/Bugs5382/go-apperr v1.2.1 h1:+IFP+LQWu4BTPDX2ezkjEhfvn5HTvBHirL2b77EXmvU=
 github.com/Bugs5382/go-apperr v1.2.1/go.mod h1:IX+TmCj35CSUNK/JU16pPTn4L4qpDreVOc7i4Q3dxy4=
+github.com/Bugs5382/go-authz v1.0.0 h1:I8BRm53nJX2GGc2+A/eNaIOrYwp7YYYXMFHOmP+fEhM=
+github.com/Bugs5382/go-authz v1.0.0/go.mod h1:H0c0JA7yIZ+4jcf8hXUB1GkASJ7sf5OuhwBxBqV/Asc=
 github.com/Bugs5382/go-grpc-actor v1.0.0 h1:PViLikqce2DlHlf4iHzxvUwvXupP8hQk1xXqYiUrScE=
 github.com/Bugs5382/go-grpc-actor v1.0.0/go.mod h1:m27opyrbIDUYHP+yPFoW+aFLxoXxQxQYrlgApQ9bw4w=
 github.com/Bugs5382/go-log v1.3.0 h1:lJv2iv6yL9l1Eqii62ArcJ1eoKbpLFdrY7L9gPNSqcI=
@@ -16,6 +18,8 @@ github.com/Bugs5382/go-saga-orchestration v0.7.0 h1:kuBXBpSDUPa6sh1D4+OK3TVqJwj6
 github.com/Bugs5382/go-saga-orchestration v0.7.0/go.mod h1:9dpggshks1/hPchW8N0IQuuJfXH5fLAjX92wp466Prg=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
+github.com/Steward-GRC/steward-authz v0.0.0-20261004225933-2e7c82d1efea h1:hypwP7hekyU6aSuY987LmOiNbzRBhIEXnRLNKbhPdvY=
+github.com/Steward-GRC/steward-authz v0.0.0-20261004225933-2e7c82d1efea/go.mod h1:0eF2fnbW/gqGUeymUZm0bS2ZUDY9IWTWVA7pnkYgiSM=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
