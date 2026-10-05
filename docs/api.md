@@ -53,3 +53,31 @@ A `WorkflowDef` is an ordered list of `WorkflowStage`s. A stage's approvers are,
 individual seats plus one vote per group. A stage left without any approver can be saved as a draft
 but can't be submitted (6003). `sla_days` sets the stage's deadline (zero uses the service-wide
 SLA); `reject_on_sla_breach` rejects instead of escalating when it passes.
+
+## Events
+
+Workflow publishes to RabbitMQ:
+
+| Exchange | Routing key | Body | When |
+| --- | --- | --- | --- |
+| `audit` | `audit.audit` | `steward.audit.v1.AuditEvent`, protobuf | Every change: submit, decisions, signals, reassignments, definitions, merges, outages |
+| `jobs` | `workflow.approval_requested` | JSON | A seat is created; one per approver, de-duplicated by obligations on `task_id` and approver |
+| `jobs` | `workflow.started` | JSON | A run starts; to the submitter |
+| `jobs` | `workflow.denied` | JSON | A stage is rejected; to the submitter |
+
+During act-as, an audit event's `actor_user_id` is the real admin and the account acted as is in
+the `impersonated_user_id` attribute.
+
+## Calling other services
+
+Workflow calls two services through protos pinned in `proto-refs.env`, never their Go modules:
+
+- **steward-core** (`CategoryService.GetCategory`, `PolicyService.GetPolicyVersion`, `GetPolicy`,
+  `SetVersionStatus`): a category's default workflow and owners, the policy the read filter checks,
+  and the version's status after approval or withdrawal.
+- **steward-identity** (`IdentityReadService.GetUser`, `grpc.health.v1`): a user's access for the
+  read filter (steward-authz's `policy.read`) and for an admin reassignment (`workflow.manage`), and
+  the health the outage reconciler watches.
+
+It publishes steward-audit's `AuditEvent`. Bump a pin, run `scripts/proto-generate.sh` and commit
+`gen/` together.
