@@ -40,6 +40,11 @@ tasks:
     desc: Regenerate docs/error-codes.md from the error registry
     cmds:
       - UPDATE_DOCS=1 go test ./internal/errcodes -run TestErrorCodesDocIsCurrent
+  run:
+    desc: Run the service locally with .env
+    dotenv: ['.env']
+    cmds:
+      - go run ./cmd/server
   test-cover:
     desc: Run tests with coverage reporting
     cmds:
