@@ -1,0 +1,102 @@
+// Copyright 2026 The Steward Authors
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package steward.workflow.v1;
+
+option go_package = "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1";
+
+// ApproverList is the individual approvers a stage names for one category.
+message ApproverList {
+  repeated string user_ids = 1;
+}
+
+// GroupUnit is a group that approves as a whole. Its members hold their own
+// group seats on the stage, separate from any individual seat they also hold.
+// The group is satisfied once its internal quorum of members say yes, and a
+// satisfied group counts as one vote in the stage's quorum.
+message GroupUnit {
+  string group_id = 1;
+  // "one", "majority" or "all".
+  string internal_quorum = 2;
+  repeated string member_user_ids = 3;
+}
+
+// WorkflowStage is one ordered step of a workflow.
+message WorkflowStage {
+  // Stable id the editor keeps across saves.
+  string id = 1;
+  string name = 2;
+  // Individual approvers for every category without its own entry in
+  // approvers_by_category.
+  repeated string approver_ids = 3;
+  // "one", "majority" or "all".
+  string quorum = 4;
+  // Zero means the service-wide SLA.
+  int32 sla_days = 5;
+  bool reject_on_sla_breach = 6;
+  // Editor ordering only.
+  bool pinned_last = 7;
+  // Individual approvers by category id. A policy uses the entry for its home
+  // category, then the nearest ancestor that has one.
+  map<string, ApproverList> approvers_by_category = 8;
+  repeated GroupUnit group_units = 9;
+}
+
+// WorkflowDef is an admin-authored approval workflow. Every update bumps the
+// version; a run stays on the version it was submitted under.
+message WorkflowDef {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 version = 4;
+  repeated WorkflowStage stages = 5;
+  // Who created or last edited the definition. They may reassign its runs'
+  // approvals as the workflow author.
+  string author_user_id = 6;
+}
+
+message ListWorkflowDefsRequest {}
+
+message ListWorkflowDefsResponse {
+  repeated WorkflowDef defs = 1;
+}
+
+message GetWorkflowDefRequest {
+  string id = 1;
+}
+
+message GetWorkflowDefResponse {
+  WorkflowDef def = 1;
+}
+
+message CreateWorkflowDefRequest {
+  string name = 1;
+  string description = 2;
+  repeated WorkflowStage stages = 3;
+  string actor_user_id = 4;
+}
+
+message CreateWorkflowDefResponse {
+  WorkflowDef def = 1;
+}
+
+message UpdateWorkflowDefRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated WorkflowStage stages = 4;
+  string actor_user_id = 5;
+}
+
+message UpdateWorkflowDefResponse {
+  WorkflowDef def = 1;
+}
+
+message ArchiveWorkflowDefRequest {
+  string id = 1;
+  string actor_user_id = 2;
+}
+
+message ArchiveWorkflowDefResponse {}
