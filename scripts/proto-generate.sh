@@ -3,8 +3,9 @@
 # proto-refs.env. The callee protos are fetched into .protos/ (git-ignored) and
 # never committed; only the generated stubs are.
 #
-# STEWARD_AUDIT_PROTO_DIR and STEWARD_CORE_PROTO_DIR point at a local proto/
-# directory instead, for trying an unmerged proto change.
+# STEWARD_AUDIT_PROTO_DIR, STEWARD_CORE_PROTO_DIR and STEWARD_IDENTITY_PROTO_DIR
+# point at a local proto/ directory instead, for trying an unmerged proto
+# change.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,6 +42,9 @@ fetch steward-audit "$STEWARD_AUDIT_REF" "${STEWARD_AUDIT_PROTO_DIR:-}" steward/
 # Only the two core files workflow calls; policy.proto imports category.proto.
 fetch steward-core "$STEWARD_CORE_REF" "${STEWARD_CORE_PROTO_DIR:-}" \
   steward/core/v1/category.proto steward/core/v1/policy.proto
+# The read service only; read.proto imports types.proto.
+fetch steward-identity "$STEWARD_IDENTITY_REF" "${STEWARD_IDENTITY_PROTO_DIR:-}" \
+  steward/identity/v1/read.proto steward/identity/v1/types.proto
 
 cd "$root"
 buf generate
