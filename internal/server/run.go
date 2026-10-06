@@ -29,6 +29,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+
+	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 // gracefulStopTimeout bounds the drain of in-flight RPCs on shutdown, so a
@@ -47,12 +49,28 @@ const (
 	LivenessService  = "liveness"
 )
 
-// Options are the transport and probe settings. Zero serves plain gRPC,
-// trusts no forwarded actor and is always ready.
+// reflectionServices stay open with health, so grpcurl and probes need no
+// token.
+var reflectionServices = []string{"/grpc.reflection.v1.ServerReflection/", "/grpc.reflection.v1alpha.ServerReflection/"}
+
+// Auth authenticates callers by their workload token (see
+// internal/workloadauth).
+type Auth struct {
+	Verifier workloadauth.TokenVerifier
+	// Policy is the per-method caller allow-list.
+	Policy workloadauth.Policy
+	// Options tune the interceptors, typically a deny hook that audits.
+	Options []workloadauth.Option
+}
+
+// Options are the transport and probe settings. Zero serves plain gRPC with
+// no caller authentication (WORKLOAD_AUTH=disabled), trusts no forwarded
+// actor and is always ready.
 type Options struct {
 	CertFile, KeyFile, ClientCAFile string
-	// TrustedCallers are the SPIFFE IDs whose forwarded actor is believed.
-	TrustedCallers []string
+	// Auth authenticates every call except health and reflection. Nil only
+	// when WORKLOAD_AUTH=disabled.
+	Auth *Auth
 	// Checker holds the dependencies readiness follows.
 	Checker *health.Checker
 	// CheckInterval is how often Health/Watch subscribers are brought up to
@@ -61,8 +79,8 @@ type Options struct {
 }
 
 // Serve runs a gRPC server on lis with go-otel tracing, panic recovery,
-// go-grpc-actor, grpc.health.v1 and reflection, plus the services register
-// adds. It returns nil once ctx is cancelled and the server has stopped.
+// workload authentication, go-grpc-actor, grpc.health.v1 and reflection, plus
+// the services register adds. It returns nil once ctx is cancelled and the server has stopped.
 func Serve(ctx context.Context, lis net.Listener, lg log.Logger, opts Options, register func(*grpc.Server)) error {
 	checker := opts.Checker
 	if checker == nil {
@@ -80,14 +98,19 @@ func Serve(ctx context.Context, lis net.Listener, lg log.Logger, opts Options, r
 	if err != nil {
 		return fmt.Errorf("server: health: %w", err)
 	}
+	unary := []grpc.UnaryServerInterceptor{bi.UnaryServerInterceptor(), recoverUnary(lg)}
+	stream := []grpc.StreamServerInterceptor{bi.StreamServerInterceptor(), recoverStream(lg)}
 	actorOpts := []grpcactor.ServerOption{}
-	if len(opts.TrustedCallers) > 0 {
-		actorOpts = append(actorOpts, grpcactor.WithTrust(grpcactor.TrustSPIFFEIDs(opts.TrustedCallers...)))
+	if a := opts.Auth; a != nil {
+		waOpts := append([]workloadauth.Option{workloadauth.WithExempt(reflectionServices...)}, a.Options...)
+		unary = append(unary, workloadauth.UnaryServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
+		stream = append(stream, workloadauth.StreamServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
+		actorOpts = append(actorOpts, grpcactor.WithTrust(TrustOnBehalf))
 	}
 	serverOpts := []grpc.ServerOption{
 		grpc.StatsHandler(gootel.GRPCServerStatsHandler()),
-		grpc.ChainUnaryInterceptor(bi.UnaryServerInterceptor(), recoverUnary(lg), grpcactor.UnaryServerInterceptor(actorOpts...)),
-		grpc.ChainStreamInterceptor(bi.StreamServerInterceptor(), recoverStream(lg), grpcactor.StreamServerInterceptor(actorOpts...)),
+		grpc.ChainUnaryInterceptor(append(unary, grpcactor.UnaryServerInterceptor(actorOpts...))...),
+		grpc.ChainStreamInterceptor(append(stream, grpcactor.StreamServerInterceptor(actorOpts...))...),
 	}
 	if opts.CertFile != "" {
 		creds, err := mtls(opts)
@@ -124,6 +147,14 @@ func Serve(ctx context.Context, lis net.Listener, lg log.Logger, opts Options, r
 		<-errCh
 		return nil
 	}
+}
+
+// TrustOnBehalf is go-grpc-actor's trust decision: a forwarded actor is
+// believed only from a caller the workload-auth interceptor verified with
+// on-behalf access to the method. Any other caller acts only as itself.
+func TrustOnBehalf(ctx context.Context, _ string) bool {
+	g, ok := workloadauth.GrantFromContext(ctx)
+	return ok && g.Access == workloadauth.OnBehalf
 }
 
 // ServeProbes serves /livez and /readyz over plain HTTP on lis, for probes

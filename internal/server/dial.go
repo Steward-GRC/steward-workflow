@@ -16,14 +16,21 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 // DialOptions are the options for every outbound connection (core and
 // identity). The go-grpc-actor client interceptors put the request's actor,
 // and during act-as the real admin, on every call, so a peer records who
-// really acted; a background call carries none. With a certificate the
-// connection is mTLS, the same CA verifying the peer.
-func DialOptions(certFile, keyFile, caFile string) ([]grpc.DialOption, error) {
+// really acted; a background call carries none. Each call also carries
+// workflow's projected service-account token, read from tokenFile on every
+// call, which is what the peer authenticates; whether it believes the
+// forwarded actor is the peer's policy. An empty tokenFile sends no token. A
+// token file that can't be read now fails, so a missing mount stops the boot
+// instead of every call. With a certificate the connection is mTLS, the same
+// CA verifying the peer.
+func DialOptions(certFile, keyFile, caFile, tokenFile string) ([]grpc.DialOption, error) {
 	creds := insecure.NewCredentials()
 	if certFile != "" {
 		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -40,10 +47,23 @@ func DialOptions(certFile, keyFile, caFile string) ([]grpc.DialOption, error) {
 		}
 		creds = credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: pool, MinVersion: tls.VersionTLS13})
 	}
-	return []grpc.DialOption{
+	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
 		grpc.WithStatsHandler(gootel.GRPCClientStatsHandler()),
 		grpc.WithChainUnaryInterceptor(grpcactor.UnaryClientInterceptor()),
 		grpc.WithChainStreamInterceptor(grpcactor.StreamClientInterceptor()),
-	}, nil
+	}
+	if tokenFile == "" {
+		return opts, nil
+	}
+	token, _, err := workloadauth.DialOptionFromEnv(func(k string) string {
+		if k == workloadauth.EnvTokenFile {
+			return tokenFile
+		}
+		return ""
+	})
+	if err != nil {
+		return nil, fmt.Errorf("dial: %w", err)
+	}
+	return append(opts, token), nil
 }

@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,9 +45,14 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/server"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 	"github.com/Steward-GRC/steward-workflow/internal/worker"
+	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 const serviceName = "workflow"
+
+// jwksRecheck is how long a good JWKS fetch keeps readiness up before the
+// next probe fetches again.
+const jwksRecheck = time.Minute
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -102,11 +108,15 @@ func run(ctx context.Context, logger log.Logger) error {
 	auditPub := conn.NewPublisher(audit.Exchange,
 		rabbitmq.WithExchangeDeclare(rabbitmq.ExchangeConfig{Name: audit.Exchange, Kind: "topic", Durable: true}),
 		rabbitmq.WithDefaultContentType(audit.ContentType))
-	auditAdapter := grpcsvc.NewAuditAdapter(audit.New(publisher{auditPub}), logger)
+	auditor := audit.New(publisher{auditPub})
+	auditAdapter := grpcsvc.NewAuditAdapter(auditor, logger)
 	// The approval notices go to obligations on "jobs" as JSON.
 	jobsPub := publisher{conn.NewPublisher("jobs", rabbitmq.WithExchangeDeclare(rabbitmq.ExchangeConfig{Name: "jobs", Kind: "topic", Durable: true}))}
 
-	dialOpts, err := server.DialOptions(cfg.TLS.CertFile, cfg.TLS.KeyFile, cfg.TLS.ClientCAFile)
+	if cfg.TokenFile == "" {
+		logger.Warn("WORKLOAD_TOKEN_FILE is not set: calls to core and identity carry no workload token (WORKLOAD_AUTH=disabled)")
+	}
+	dialOpts, err := server.DialOptions(cfg.TLS.CertFile, cfg.TLS.KeyFile, cfg.TLS.ClientCAFile, cfg.TokenFile)
 	if err != nil {
 		return err
 	}
@@ -182,13 +192,31 @@ func run(ctx context.Context, logger log.Logger) error {
 		Audit:               outage.AuditFunc(func(action, subject string) { auditAdapter.Emit(ctx, action, subject) }),
 	}).Run(ctx)
 
-	if len(cfg.TrustedCallers) == 0 {
-		logger.Warn("WORKFLOW_TRUSTED_CALLERS is not set: forwarded actors are ignored, so act-as can't name the admin")
-	}
-	checker, err := readiness.New(readiness.Deps{
+	deps := readiness.Deps{
 		Postgres: readiness.PostgresDB(db), Broker: conn,
 		Identity: readiness.GRPCPeer(identityConn), Core: readiness.GRPCPeer(coreConn),
-	}, health.WithTTL(5*time.Second), health.WithTimeout(2*time.Second), health.WithLogger(logger))
+	}
+	var auth *server.Auth
+	if cfg.WorkloadAuthEnabled {
+		v, err := workloadauth.NewVerifier(cfg.WorkloadAuth, logger)
+		if err != nil {
+			return fmt.Errorf("workload auth: %w", err)
+		}
+		go v.Run(ctx)
+		deps.JWKS = readiness.RecheckEvery(v.Refresh, jwksRecheck, time.Now)
+		auth = &server.Auth{Verifier: v, Policy: grpcsvc.CallerPolicy(), Options: []workloadauth.Option{
+			workloadauth.WithDenyHook(grpcsvc.AuditDenial(auditor, logger)),
+		}}
+		logger.Info("service-to-service authentication on",
+			log.F("issuer", cfg.WorkloadAuth.Issuer), log.F("audience", cfg.WorkloadAuth.Audience),
+			log.F("jwks_override", cfg.WorkloadAuth.JWKSURL != ""), log.F("ca_file", cfg.WorkloadAuth.CAFile != ""),
+			log.F("bearer_file", cfg.WorkloadAuth.BearerFile != ""),
+			log.F("allowed_serviceaccounts", strings.Join(cfg.WorkloadAuth.AllowedServiceAccounts, ",")))
+	} else {
+		deps.WorkloadAuthDisabled = true
+		go workloadauth.WarnDisabled(ctx, logger, workloadauth.DisabledWarnInterval)
+	}
+	checker, err := readiness.New(deps, health.WithTTL(5*time.Second), health.WithTimeout(2*time.Second), health.WithLogger(logger))
 	if err != nil {
 		return fmt.Errorf("readiness: %w", err)
 	}
@@ -210,7 +238,7 @@ func run(ctx context.Context, logger log.Logger) error {
 	}()
 	err = server.Serve(ctx, lis, logger, server.Options{
 		CertFile: cfg.TLS.CertFile, KeyFile: cfg.TLS.KeyFile, ClientCAFile: cfg.TLS.ClientCAFile,
-		TrustedCallers: cfg.TrustedCallers, Checker: checker,
+		Auth: auth, Checker: checker,
 	}, func(s *grpc.Server) { workflowv1.RegisterWorkflowServiceServer(s, wfSrv) })
 	cancel()
 	if perr := <-probesDone; err == nil {
