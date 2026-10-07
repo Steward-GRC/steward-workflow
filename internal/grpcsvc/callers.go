@@ -17,6 +17,10 @@ import (
 // steward-gateway.
 const CallerGateway = "gateway"
 
+// CallerIdentity is identity's caller name, from its service account
+// steward-identity.
+const CallerIdentity = "identity"
+
 // gatewayMethods are the methods the gateway calls, each on behalf of the
 // signed-in user (and, during act-as, the admin behind them).
 var gatewayMethods = []string{
@@ -37,15 +41,18 @@ var gatewayMethods = []string{
 	workflowv1.WorkflowService_ResolveWorkflow_FullMethodName,
 }
 
-// CallerPolicy is workflow's per-method allow-list. The gateway is its only
-// caller and passes the user's actor on every method it calls.
-// ReassignUserWorkflowItems has no caller yet (identity's account merge will
-// call it), so it is refused to everyone. Anything else is refused.
+// CallerPolicy is workflow's per-method allow-list. The gateway calls every
+// method but the merge reassign, passing the user's actor. Identity calls
+// ReassignUserWorkflowItems for an account merge and ListPendingTasks for the
+// delete's approval check, passing the admin who runs them. Anything else is
+// refused.
 func CallerPolicy() workloadauth.Policy {
 	p := workloadauth.Policy{}
 	for _, m := range gatewayMethods {
 		p[m] = map[string]workloadauth.Access{CallerGateway: workloadauth.OnBehalf}
 	}
+	p[workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName] = map[string]workloadauth.Access{CallerIdentity: workloadauth.OnBehalf}
+	p[workflowv1.WorkflowService_ListPendingTasks_FullMethodName][CallerIdentity] = workloadauth.OnBehalf
 	return p
 }
 
