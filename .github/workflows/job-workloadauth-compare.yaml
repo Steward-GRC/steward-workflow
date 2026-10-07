@@ -1,0 +1,28 @@
+name: Workload auth copy
+# internal/workloadauth is a byte-identical copy of steward-core's origin copy.
+# scripts/workloadauth-check.sh fetches steward-core at the commit
+# STEWARD_CORE_REF pins in proto-refs.env and fails on any difference.
+#
+# Pull requests only, and not while the PR is a draft.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  compare:
+    name: 🔐 Workload auth copy
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Compare with steward-core
+        run: scripts/workloadauth-check.sh

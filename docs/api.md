@@ -70,7 +70,11 @@ the `impersonated_user_id` attribute.
 
 ## Calling other services
 
-Workflow calls two services through protos pinned in `proto-refs.env`, never their Go modules:
+Every call workflow serves is authenticated by the caller's workload token and checked against a
+per-method allow-list; see [configuration.md](configuration.md#service-to-service-authentication).
+
+Workflow calls two services through protos pinned in `proto-refs.env`, never their Go modules, and
+sends its own workload token on each call:
 
 - **steward-core** (`CategoryService.GetCategory`, `PolicyService.GetPolicyVersion`, `GetPolicy`,
   `SetVersionStatus`): a category's default workflow and owners, the policy the read filter checks,
@@ -80,4 +84,6 @@ Workflow calls two services through protos pinned in `proto-refs.env`, never the
   the health the outage reconciler watches.
 
 It publishes steward-audit's `AuditEvent`. Bump a pin, run `scripts/proto-generate.sh` and commit
-`gen/` together.
+`gen/` together. `STEWARD_CORE_REF` also pins `internal/workloadauth`, a byte-identical copy of
+steward-core's; `scripts/workloadauth-check.sh` (run in CI) fails on any difference. Never edit the
+copy here: change it in steward-core, move the pin, and copy it again.

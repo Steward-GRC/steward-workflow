@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	PolicyService_CreatePolicy_FullMethodName            = "/steward.core.v1.PolicyService/CreatePolicy"
 	PolicyService_GetPolicy_FullMethodName               = "/steward.core.v1.PolicyService/GetPolicy"
+	PolicyService_GetPolicyByNumber_FullMethodName       = "/steward.core.v1.PolicyService/GetPolicyByNumber"
 	PolicyService_ListPolicies_FullMethodName            = "/steward.core.v1.PolicyService/ListPolicies"
 	PolicyService_GetPolicyVersion_FullMethodName        = "/steward.core.v1.PolicyService/GetPolicyVersion"
 	PolicyService_ListPolicyVersions_FullMethodName      = "/steward.core.v1.PolicyService/ListPolicyVersions"
@@ -60,6 +61,7 @@ const (
 type PolicyServiceClient interface {
 	CreatePolicy(ctx context.Context, in *CreatePolicyRequest, opts ...grpc.CallOption) (*CreatePolicyResponse, error)
 	GetPolicy(ctx context.Context, in *GetPolicyRequest, opts ...grpc.CallOption) (*GetPolicyResponse, error)
+	GetPolicyByNumber(ctx context.Context, in *GetPolicyByNumberRequest, opts ...grpc.CallOption) (*GetPolicyByNumberResponse, error)
 	ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error)
 	GetPolicyVersion(ctx context.Context, in *GetPolicyVersionRequest, opts ...grpc.CallOption) (*GetPolicyVersionResponse, error)
 	ListPolicyVersions(ctx context.Context, in *ListPolicyVersionsRequest, opts ...grpc.CallOption) (*ListPolicyVersionsResponse, error)
@@ -112,6 +114,16 @@ func (c *policyServiceClient) GetPolicy(ctx context.Context, in *GetPolicyReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetPolicyResponse)
 	err := c.cc.Invoke(ctx, PolicyService_GetPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *policyServiceClient) GetPolicyByNumber(ctx context.Context, in *GetPolicyByNumberRequest, opts ...grpc.CallOption) (*GetPolicyByNumberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPolicyByNumberResponse)
+	err := c.cc.Invoke(ctx, PolicyService_GetPolicyByNumber_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -377,6 +389,7 @@ func (c *policyServiceClient) ReindexAllPublished(ctx context.Context, in *Reind
 type PolicyServiceServer interface {
 	CreatePolicy(context.Context, *CreatePolicyRequest) (*CreatePolicyResponse, error)
 	GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error)
+	GetPolicyByNumber(context.Context, *GetPolicyByNumberRequest) (*GetPolicyByNumberResponse, error)
 	ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error)
 	GetPolicyVersion(context.Context, *GetPolicyVersionRequest) (*GetPolicyVersionResponse, error)
 	ListPolicyVersions(context.Context, *ListPolicyVersionsRequest) (*ListPolicyVersionsResponse, error)
@@ -420,6 +433,9 @@ func (UnimplementedPolicyServiceServer) CreatePolicy(context.Context, *CreatePol
 }
 func (UnimplementedPolicyServiceServer) GetPolicy(context.Context, *GetPolicyRequest) (*GetPolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPolicy not implemented")
+}
+func (UnimplementedPolicyServiceServer) GetPolicyByNumber(context.Context, *GetPolicyByNumberRequest) (*GetPolicyByNumberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPolicyByNumber not implemented")
 }
 func (UnimplementedPolicyServiceServer) ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListPolicies not implemented")
@@ -549,6 +565,24 @@ func _PolicyService_GetPolicy_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PolicyServiceServer).GetPolicy(ctx, req.(*GetPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PolicyService_GetPolicyByNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPolicyByNumberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PolicyServiceServer).GetPolicyByNumber(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PolicyService_GetPolicyByNumber_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PolicyServiceServer).GetPolicyByNumber(ctx, req.(*GetPolicyByNumberRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1017,6 +1051,10 @@ var PolicyService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPolicy",
 			Handler:    _PolicyService_GetPolicy_Handler,
+		},
+		{
+			MethodName: "GetPolicyByNumber",
+			Handler:    _PolicyService_GetPolicyByNumber_Handler,
 		},
 		{
 			MethodName: "ListPolicies",

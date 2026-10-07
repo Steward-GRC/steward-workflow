@@ -8,7 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
+
+	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 // TLS is the service certificate and the CA its peers' certificates chain to.
@@ -45,9 +46,16 @@ type Config struct {
 	// StageReminderHours is when its reminder falls.
 	StageReminderHours int
 	TLS                TLS
-	// TrustedCallers are the SPIFFE IDs whose forwarded actor is believed.
-	// They need TLS with client certificates.
-	TrustedCallers []string
+	// WorkloadAuth verifies the callers' workload tokens. It is set only
+	// while WorkloadAuthEnabled, which is false only with
+	// WORKLOAD_AUTH=disabled.
+	WorkloadAuth        workloadauth.Config
+	WorkloadAuthEnabled bool
+	// TokenFile is workflow's own projected token, sent to core and identity
+	// on every call. It defaults to workloadauth.DefaultTokenFile while
+	// authentication is on; switched off, it is sent only when
+	// WORKLOAD_TOKEN_FILE is set, because a peer may still enforce.
+	TokenFile string
 }
 
 // Load reads the settings through getenv (os.Getenv in production).
@@ -71,13 +79,16 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	c.MigrateDSN = or("MIGRATE_DSN", c.DatabaseDSN)
 	c.SagaDatabaseDSN = or("SAGA_DATABASE_DSN", c.DatabaseDSN)
-	for _, id := range strings.Split(getenv("WORKFLOW_TRUSTED_CALLERS"), ",") {
-		if id = strings.TrimSpace(id); id != "" {
-			c.TrustedCallers = append(c.TrustedCallers, id)
-		}
-	}
 
 	var errs []error
+	var err error
+	if c.WorkloadAuth, c.WorkloadAuthEnabled, err = workloadauth.ServerConfigFromEnv(getenv); err != nil {
+		errs = append(errs, err)
+	}
+	c.TokenFile = getenv(workloadauth.EnvTokenFile)
+	if c.TokenFile == "" && c.WorkloadAuthEnabled {
+		c.TokenFile = workloadauth.DefaultTokenFile
+	}
 	if c.DatabaseDSN == "" {
 		errs = append(errs, errors.New("DATABASE_DSN is required"))
 	}
@@ -96,9 +107,6 @@ func Load(getenv func(string) string) (Config, error) {
 	tlsSet := c.TLS.CertFile != "" || c.TLS.KeyFile != "" || c.TLS.ClientCAFile != ""
 	if tlsSet && (c.TLS.CertFile == "" || c.TLS.KeyFile == "" || c.TLS.ClientCAFile == "") {
 		errs = append(errs, errors.New("GRPC_TLS_CERT_FILE, GRPC_TLS_KEY_FILE and GRPC_TLS_CLIENT_CA_FILE are set together"))
-	}
-	if len(c.TrustedCallers) > 0 && !tlsSet {
-		errs = append(errs, errors.New("WORKFLOW_TRUSTED_CALLERS needs GRPC_TLS_* with client certificates"))
 	}
 	return c, errors.Join(errs...)
 }
