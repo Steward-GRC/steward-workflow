@@ -72,6 +72,9 @@ the `impersonated_user_id` attribute.
 
 Every call workflow serves is authenticated by the caller's workload token and checked against a
 per-method allow-list; see [configuration.md](configuration.md#service-to-service-authentication).
+The gateway and identity are its callers: identity re-points a merged account's seats
+(`ReassignUserWorkflowItems`) and reads an account's pending seats before a delete
+(`ListPendingTasks`).
 
 Workflow calls two services through protos pinned in `proto-refs.env`, never their Go modules, and
 sends its own workload token on each call:

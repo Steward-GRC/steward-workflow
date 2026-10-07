@@ -47,9 +47,11 @@ func TestCallerPolicyGatewayCallsEveryMethodButTheMergeReassignOnBehalf(t *testi
 	require.Equal(t, want, callerMethods(CallerGateway))
 }
 
-func TestCallerPolicyRefusesTheMergeReassignToEveryone(t *testing.T) {
-	require.Empty(t, CallerPolicy()[workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName],
-		"no service calls it yet, so no one may")
+func TestCallerPolicyLetsIdentityReassignAndReadPendingTasksOnBehalf(t *testing.T) {
+	require.Equal(t, map[string]workloadauth.Access{
+		workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName: workloadauth.OnBehalf,
+		workflowv1.WorkflowService_ListPendingTasks_FullMethodName:          workloadauth.OnBehalf,
+	}, callerMethods(CallerIdentity), "identity's account merge and delete check call these, passing the admin")
 }
 
 func TestCallerPolicyListsNoOtherCaller(t *testing.T) {
@@ -61,10 +63,10 @@ func TestCallerPolicyListsNoOtherCaller(t *testing.T) {
 	for m, callers := range p {
 		require.True(t, served[m], "the policy lists %s, which workflow doesn't serve", m)
 		for c := range callers {
-			require.Equal(t, CallerGateway, c, "%s lists caller %q", m, c)
+			require.Contains(t, []string{CallerGateway, CallerIdentity}, c, "%s lists caller %q", m, c)
 		}
 	}
-	for _, c := range []string{"core", "identity", "obligations", "reporting", "collab", "delivery", "ai"} {
+	for _, c := range []string{"core", "obligations", "reporting", "collab", "delivery", "ai"} {
 		require.Empty(t, callerMethods(c), "%s may call nothing on workflow", c)
 	}
 }

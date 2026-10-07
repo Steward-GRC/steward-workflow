@@ -23,7 +23,7 @@ value that doesn't parse stops the service with every problem listed; nothing fa
 | `WORKLOAD_OIDC_CA_FILE` | system roots | Extra PEM CA trusted for the discovery and JWKS fetch (the cluster CA). |
 | `WORKLOAD_OIDC_BEARER_FILE` | empty | A token sent on the discovery and JWKS fetch, re-read on every fetch (the pod's API token, not the `steward` caller token). |
 | `WORKLOAD_AUDIENCE` | `steward` | The audience a caller's token must carry. |
-| `WORKLOAD_ALLOWED_SERVICEACCOUNTS` | required | Comma list of `<namespace>/<serviceaccount>` that may call workflow at all: `steward/steward-gateway`. |
+| `WORKLOAD_ALLOWED_SERVICEACCOUNTS` | required | Comma list of `<namespace>/<serviceaccount>` that may call workflow at all: `steward/steward-gateway` and `steward/steward-identity`. |
 | `WORKLOAD_AUTH` | enabled | `disabled` turns caller authentication off, for local runs only. Nothing else turns it off, and it can't be combined with `WORKLOAD_OIDC_ISSUER`. |
 | `WORKLOAD_TOKEN_FILE` | `/var/run/secrets/steward/token` while authentication is on | Workflow's own projected token (audience `steward`), sent to core and identity on every call and re-read each time. An unreadable file stops the boot. With `WORKLOAD_AUTH=disabled` it is sent only when set, since core or identity may still enforce. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | The OTLP collector for traces and metrics. |
@@ -40,9 +40,7 @@ method in workflow's allow-list (`internal/grpcsvc/callers.go`):
 | Caller | Methods | Access |
 | --- | --- | --- |
 | `gateway` | every method except `ReassignUserWorkflowItems` | on behalf of the signed-in user |
-
-`ReassignUserWorkflowItems` has no caller yet (identity's account merge will call it), so it is
-refused to everyone until that caller is listed.
+| `identity` | `ReassignUserWorkflowItems` (account merge), `ListPendingTasks` (the delete's approval check and preview) | on behalf of the admin running them |
 
 - **Refusals:** a missing or rejected token (wrong issuer or audience, expired, or a service account
   outside the allow-list) is `Unauthenticated`, a caller the method doesn't list is
