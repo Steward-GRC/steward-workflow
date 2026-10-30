@@ -33,6 +33,7 @@ const (
 	PolicyService_DiscardDraft_FullMethodName            = "/steward.core.v1.PolicyService/DiscardDraft"
 	PolicyService_DeletePolicy_FullMethodName            = "/steward.core.v1.PolicyService/DeletePolicy"
 	PolicyService_RetirePolicy_FullMethodName            = "/steward.core.v1.PolicyService/RetirePolicy"
+	PolicyService_RecordBreakGlassRead_FullMethodName    = "/steward.core.v1.PolicyService/RecordBreakGlassRead"
 	PolicyService_SetVersionStatus_FullMethodName        = "/steward.core.v1.PolicyService/SetVersionStatus"
 	PolicyService_SetPolicyOwner_FullMethodName          = "/steward.core.v1.PolicyService/SetPolicyOwner"
 	PolicyService_ListPoliciesByOwner_FullMethodName     = "/steward.core.v1.PolicyService/ListPoliciesByOwner"
@@ -70,6 +71,11 @@ type PolicyServiceClient interface {
 	DiscardDraft(ctx context.Context, in *DiscardDraftRequest, opts ...grpc.CallOption) (*DiscardDraftResponse, error)
 	DeletePolicy(ctx context.Context, in *DeletePolicyRequest, opts ...grpc.CallOption) (*DeletePolicyResponse, error)
 	RetirePolicy(ctx context.Context, in *RetirePolicyRequest, opts ...grpc.CallOption) (*RetirePolicyResponse, error)
+	// RecordBreakGlassRead audits one read of a document under an active
+	// break-glass grant and tells its owner and the compliance admins. The
+	// gateway calls it before it serves the content, and serves nothing when it
+	// fails.
+	RecordBreakGlassRead(ctx context.Context, in *RecordBreakGlassReadRequest, opts ...grpc.CallOption) (*RecordBreakGlassReadResponse, error)
 	// SetVersionStatus is how workflow writes an approval outcome back.
 	SetVersionStatus(ctx context.Context, in *SetVersionStatusRequest, opts ...grpc.CallOption) (*SetVersionStatusResponse, error)
 	SetPolicyOwner(ctx context.Context, in *SetPolicyOwnerRequest, opts ...grpc.CallOption) (*SetPolicyOwnerResponse, error)
@@ -204,6 +210,16 @@ func (c *policyServiceClient) RetirePolicy(ctx context.Context, in *RetirePolicy
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RetirePolicyResponse)
 	err := c.cc.Invoke(ctx, PolicyService_RetirePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *policyServiceClient) RecordBreakGlassRead(ctx context.Context, in *RecordBreakGlassReadRequest, opts ...grpc.CallOption) (*RecordBreakGlassReadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecordBreakGlassReadResponse)
+	err := c.cc.Invoke(ctx, PolicyService_RecordBreakGlassRead_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -398,6 +414,11 @@ type PolicyServiceServer interface {
 	DiscardDraft(context.Context, *DiscardDraftRequest) (*DiscardDraftResponse, error)
 	DeletePolicy(context.Context, *DeletePolicyRequest) (*DeletePolicyResponse, error)
 	RetirePolicy(context.Context, *RetirePolicyRequest) (*RetirePolicyResponse, error)
+	// RecordBreakGlassRead audits one read of a document under an active
+	// break-glass grant and tells its owner and the compliance admins. The
+	// gateway calls it before it serves the content, and serves nothing when it
+	// fails.
+	RecordBreakGlassRead(context.Context, *RecordBreakGlassReadRequest) (*RecordBreakGlassReadResponse, error)
 	// SetVersionStatus is how workflow writes an approval outcome back.
 	SetVersionStatus(context.Context, *SetVersionStatusRequest) (*SetVersionStatusResponse, error)
 	SetPolicyOwner(context.Context, *SetPolicyOwnerRequest) (*SetPolicyOwnerResponse, error)
@@ -460,6 +481,9 @@ func (UnimplementedPolicyServiceServer) DeletePolicy(context.Context, *DeletePol
 }
 func (UnimplementedPolicyServiceServer) RetirePolicy(context.Context, *RetirePolicyRequest) (*RetirePolicyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RetirePolicy not implemented")
+}
+func (UnimplementedPolicyServiceServer) RecordBreakGlassRead(context.Context, *RecordBreakGlassReadRequest) (*RecordBreakGlassReadResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordBreakGlassRead not implemented")
 }
 func (UnimplementedPolicyServiceServer) SetVersionStatus(context.Context, *SetVersionStatusRequest) (*SetVersionStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetVersionStatus not implemented")
@@ -727,6 +751,24 @@ func _PolicyService_RetirePolicy_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PolicyServiceServer).RetirePolicy(ctx, req.(*RetirePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PolicyService_RecordBreakGlassRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordBreakGlassReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PolicyServiceServer).RecordBreakGlassRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PolicyService_RecordBreakGlassRead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PolicyServiceServer).RecordBreakGlassRead(ctx, req.(*RecordBreakGlassReadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1087,6 +1129,10 @@ var PolicyService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RetirePolicy",
 			Handler:    _PolicyService_RetirePolicy_Handler,
+		},
+		{
+			MethodName: "RecordBreakGlassRead",
+			Handler:    _PolicyService_RecordBreakGlassRead_Handler,
 		},
 		{
 			MethodName: "SetVersionStatus",
