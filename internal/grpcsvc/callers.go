@@ -8,9 +8,9 @@ import (
 
 	log "github.com/Bugs5382/go-log"
 
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
 	"github.com/Steward-GRC/steward-workflow/internal/audit"
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 // CallerGateway is the gateway's caller name, from its service account
@@ -46,13 +46,13 @@ var gatewayMethods = []string{
 // ReassignUserWorkflowItems for an account merge and ListPendingTasks for the
 // delete's approval check, passing the admin who runs them. Anything else is
 // refused.
-func CallerPolicy() workloadauth.Policy {
-	p := workloadauth.Policy{}
+func CallerPolicy() workloadidentity.Policy {
+	p := workloadidentity.Policy{}
 	for _, m := range gatewayMethods {
-		p[m] = map[string]workloadauth.Access{CallerGateway: workloadauth.OnBehalf}
+		p[m] = map[string]workloadidentity.Access{CallerGateway: workloadidentity.OnBehalf}
 	}
-	p[workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName] = map[string]workloadauth.Access{CallerIdentity: workloadauth.OnBehalf}
-	p[workflowv1.WorkflowService_ListPendingTasks_FullMethodName][CallerIdentity] = workloadauth.OnBehalf
+	p[workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName] = map[string]workloadidentity.Access{CallerIdentity: workloadidentity.OnBehalf}
+	p[workflowv1.WorkflowService_ListPendingTasks_FullMethodName][CallerIdentity] = workloadidentity.OnBehalf
 	return p
 }
 
@@ -63,8 +63,8 @@ type auditEmitter interface {
 // AuditDenial records a call the workload-auth interceptor refused, as
 // rpc.denied in the audit tier. The actor is the authenticated caller (or
 // "unauthenticated"), never a user the call claimed.
-func AuditDenial(emitter auditEmitter, lg log.Logger) workloadauth.DenyHook {
-	return func(ctx context.Context, d workloadauth.Denial) {
+func AuditDenial(emitter auditEmitter, lg log.Logger) workloadidentity.DenyHook {
+	return func(ctx context.Context, d workloadidentity.Denial) {
 		caller := d.Caller.Name
 		if caller == "" {
 			caller = "unauthenticated"

@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 )
 
 // gracefulStopTimeout bounds the drain of in-flight RPCs on shutdown, so a
@@ -54,13 +54,13 @@ const (
 var reflectionServices = []string{"/grpc.reflection.v1.ServerReflection/", "/grpc.reflection.v1alpha.ServerReflection/"}
 
 // Auth authenticates callers by their workload token (see
-// internal/workloadauth).
+// github.com/Bugs5382/go-workload-identity).
 type Auth struct {
-	Verifier workloadauth.TokenVerifier
+	Verifier workloadidentity.TokenVerifier
 	// Policy is the per-method caller allow-list.
-	Policy workloadauth.Policy
+	Policy workloadidentity.Policy
 	// Options tune the interceptors, typically a deny hook that audits.
-	Options []workloadauth.Option
+	Options []workloadidentity.Option
 }
 
 // Options are the transport and probe settings. Zero serves plain gRPC with
@@ -102,9 +102,9 @@ func Serve(ctx context.Context, lis net.Listener, lg log.Logger, opts Options, r
 	stream := []grpc.StreamServerInterceptor{bi.StreamServerInterceptor(), recoverStream(lg)}
 	actorOpts := []grpcactor.ServerOption{}
 	if a := opts.Auth; a != nil {
-		waOpts := append([]workloadauth.Option{workloadauth.WithExempt(reflectionServices...)}, a.Options...)
-		unary = append(unary, workloadauth.UnaryServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
-		stream = append(stream, workloadauth.StreamServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
+		waOpts := append([]workloadidentity.Option{workloadidentity.WithExempt(reflectionServices...)}, a.Options...)
+		unary = append(unary, workloadidentity.UnaryServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
+		stream = append(stream, workloadidentity.StreamServerInterceptor(a.Verifier, a.Policy, lg, waOpts...))
 		actorOpts = append(actorOpts, grpcactor.WithTrust(TrustOnBehalf))
 	}
 	serverOpts := []grpc.ServerOption{
@@ -153,8 +153,8 @@ func Serve(ctx context.Context, lis net.Listener, lg log.Logger, opts Options, r
 // believed only from a caller the workload-auth interceptor verified with
 // on-behalf access to the method. Any other caller acts only as itself.
 func TrustOnBehalf(ctx context.Context, _ string) bool {
-	g, ok := workloadauth.GrantFromContext(ctx)
-	return ok && g.Access == workloadauth.OnBehalf
+	g, ok := workloadidentity.GrantFromContext(ctx)
+	return ok && g.Access == workloadidentity.OnBehalf
 }
 
 // ServeProbes serves /livez and /readyz over plain HTTP on lis, for probes

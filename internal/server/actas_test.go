@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 // The act-as round trip over mTLS with workload tokens: the gateway forwards
@@ -138,7 +138,7 @@ func dialAs(t *testing.T, p *pki, addr, tokFile string) workflowv1.WorkflowServi
 	return workflowv1.NewWorkflowServiceClient(conn)
 }
 
-func authFor(t *testing.T, iss *localIssuer, policy workloadauth.Policy) *Auth {
+func authFor(t *testing.T, iss *localIssuer, policy workloadidentity.Policy) *Auth {
 	t.Helper()
 	v := iss.verifier(t, testNS+"/steward-gateway", testNS+"/steward-workflow", testNS+"/steward-reporting")
 	require.NoError(t, v.Refresh(context.Background()))
@@ -150,11 +150,11 @@ func TestActAs_GatewayActorReachesWorkflowAndWorkflowCallsCoreAsItself(t *testin
 	// core lists workflow as Self: the call is accepted on workflow's token,
 	// and the actor it forwards is not believed.
 	coreSeen := make(chan grpcactor.Actor, 1)
-	coreAddr := serveTLS(t, p, "core", authFor(t, iss, workloadauth.Policy{getStatus: {"workflow": workloadauth.Self}}), actorProbe{seen: coreSeen})
+	coreAddr := serveTLS(t, p, "core", authFor(t, iss, workloadidentity.Policy{getStatus: {"workflow": workloadidentity.Self}}), actorProbe{seen: coreSeen})
 
 	workflowSeen := make(chan grpcactor.Actor, 1)
 	toCore := dialAs(t, p, coreAddr, tokenFile(t, iss.token(t, "steward-workflow", "steward")))
-	workflowAddr := serveTLS(t, p, "workflow", authFor(t, iss, workloadauth.Policy{getStatus: {"gateway": workloadauth.OnBehalf}}),
+	workflowAddr := serveTLS(t, p, "workflow", authFor(t, iss, workloadidentity.Policy{getStatus: {"gateway": workloadidentity.OnBehalf}}),
 		actorProbe{seen: workflowSeen, next: toCore})
 
 	ctx := grpcactor.WithActor(context.Background(), grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"})
@@ -168,7 +168,7 @@ func TestActAs_GatewayActorReachesWorkflowAndWorkflowCallsCoreAsItself(t *testin
 func TestActAs_UnlistedCallerIsRefused(t *testing.T) {
 	p, iss := newPKI(t), newLocalIssuer(t)
 	seen := make(chan grpcactor.Actor, 1)
-	addr := serveTLS(t, p, "workflow", authFor(t, iss, workloadauth.Policy{getStatus: {"gateway": workloadauth.OnBehalf}}), actorProbe{seen: seen})
+	addr := serveTLS(t, p, "workflow", authFor(t, iss, workloadidentity.Policy{getStatus: {"gateway": workloadidentity.OnBehalf}}), actorProbe{seen: seen})
 
 	ctx := grpcactor.WithActor(context.Background(), grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"})
 	_, err := dialAs(t, p, addr, tokenFile(t, iss.token(t, "steward-reporting", "steward"))).GetStatus(ctx, &workflowv1.GetStatusRequest{})
@@ -179,7 +179,7 @@ func TestActAs_UnlistedCallerIsRefused(t *testing.T) {
 func TestActAs_SelfOnlyCallerActorIsDropped(t *testing.T) {
 	p, iss := newPKI(t), newLocalIssuer(t)
 	seen := make(chan grpcactor.Actor, 1)
-	addr := serveTLS(t, p, "workflow", authFor(t, iss, workloadauth.Policy{getStatus: {"reporting": workloadauth.Self}}), actorProbe{seen: seen})
+	addr := serveTLS(t, p, "workflow", authFor(t, iss, workloadidentity.Policy{getStatus: {"reporting": workloadidentity.Self}}), actorProbe{seen: seen})
 
 	ctx := grpcactor.WithActor(context.Background(), grpcactor.Actor{Subject: "user-carol", Impersonator: "user-alice"})
 	_, err := dialAs(t, p, addr, tokenFile(t, iss.token(t, "steward-reporting", "steward"))).GetStatus(ctx, &workflowv1.GetStatusRequest{})
@@ -190,7 +190,7 @@ func TestActAs_SelfOnlyCallerActorIsDropped(t *testing.T) {
 func TestActAs_SystemCallForwardsNothing(t *testing.T) {
 	p, iss := newPKI(t), newLocalIssuer(t)
 	seen := make(chan grpcactor.Actor, 1)
-	addr := serveTLS(t, p, "core", authFor(t, iss, workloadauth.Policy{getStatus: {"workflow": workloadauth.OnBehalf}}), actorProbe{seen: seen})
+	addr := serveTLS(t, p, "core", authFor(t, iss, workloadidentity.Policy{getStatus: {"workflow": workloadidentity.OnBehalf}}), actorProbe{seen: seen})
 
 	_, err := dialAs(t, p, addr, tokenFile(t, iss.token(t, "steward-workflow", "steward"))).GetStatus(context.Background(), &workflowv1.GetStatusRequest{})
 	require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestActAs_SystemCallForwardsNothing(t *testing.T) {
 func TestDialOptionsSendTheTokenAndReadItOnEveryCall(t *testing.T) {
 	iss := newLocalIssuer(t)
 	seen := make(chan grpcactor.Actor, 2)
-	addr := servePlain(t, authFor(t, iss, workloadauth.Policy{getStatus: {"workflow": workloadauth.Self}}), actorProbe{seen: seen})
+	addr := servePlain(t, authFor(t, iss, workloadidentity.Policy{getStatus: {"workflow": workloadidentity.Self}}), actorProbe{seen: seen})
 
 	path := tokenFile(t, iss.token(t, "steward-workflow", "steward"))
 	opts, err := DialOptions("", "", "", path)
@@ -221,7 +221,7 @@ func TestDialOptionsSendTheTokenAndReadItOnEveryCall(t *testing.T) {
 
 func TestDialOptionsWithoutATokenFileSendNoToken(t *testing.T) {
 	iss := newLocalIssuer(t)
-	addr := servePlain(t, authFor(t, iss, workloadauth.Policy{getStatus: {"workflow": workloadauth.Self}}), actorProbe{seen: make(chan grpcactor.Actor, 1)})
+	addr := servePlain(t, authFor(t, iss, workloadidentity.Policy{getStatus: {"workflow": workloadidentity.Self}}), actorProbe{seen: make(chan grpcactor.Actor, 1)})
 	opts, err := DialOptions("", "", "", "")
 	require.NoError(t, err)
 	c, err := grpc.NewClient(addr, opts...)
