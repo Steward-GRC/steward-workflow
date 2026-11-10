@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 )
 
 // TLS is the service certificate and the CA its peers' certificates chain to.
@@ -49,10 +49,10 @@ type Config struct {
 	// WorkloadAuth verifies the callers' workload tokens. It is set only
 	// while WorkloadAuthEnabled, which is false only with
 	// WORKLOAD_AUTH=disabled.
-	WorkloadAuth        workloadauth.Config
+	WorkloadAuth        workloadidentity.Config
 	WorkloadAuthEnabled bool
 	// TokenFile is workflow's own projected token, sent to core and identity
-	// on every call. It defaults to workloadauth.DefaultTokenFile while
+	// on every call. It defaults to WorkloadTokenFile while
 	// authentication is on; switched off, it is sent only when
 	// WORKLOAD_TOKEN_FILE is set, because a peer may still enforce.
 	TokenFile string
@@ -82,12 +82,12 @@ func Load(getenv func(string) string) (Config, error) {
 
 	var errs []error
 	var err error
-	if c.WorkloadAuth, c.WorkloadAuthEnabled, err = workloadauth.ServerConfigFromEnv(getenv); err != nil {
+	if c.WorkloadAuth, c.WorkloadAuthEnabled, err = serverWorkloadConfig(getenv); err != nil {
 		errs = append(errs, err)
 	}
-	c.TokenFile = getenv(workloadauth.EnvTokenFile)
+	c.TokenFile = getenv(workloadidentity.EnvTokenFile)
 	if c.TokenFile == "" && c.WorkloadAuthEnabled {
-		c.TokenFile = workloadauth.DefaultTokenFile
+		c.TokenFile = WorkloadTokenFile
 	}
 	if c.DatabaseDSN == "" {
 		errs = append(errs, errors.New("DATABASE_DSN is required"))

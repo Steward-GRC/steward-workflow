@@ -22,6 +22,8 @@ github.com/Bugs5382/go-rabbitmq v1.3.0 h1:c+YUEBKhSoeh8UXbMzS4u8G0oRxlsmCsWHkojQ
 github.com/Bugs5382/go-rabbitmq v1.3.0/go.mod h1:bjJjrQozm7gQOK9t2vKDYrgi/7j9xuyUzIABW9leOL0=
 github.com/Bugs5382/go-saga-orchestration v0.7.0 h1:kuBXBpSDUPa6sh1D4+OK3TVqJwj6omV4UGMDlXQk02c=
 github.com/Bugs5382/go-saga-orchestration v0.7.0/go.mod h1:9dpggshks1/hPchW8N0IQuuJfXH5fLAjX92wp466Prg=
+github.com/Bugs5382/go-workload-identity v1.0.0 h1:XEg8Byo7VH6Mb+Fv0kJEdUCiZXX9DG/BuGSsD2oNHgI=
+github.com/Bugs5382/go-workload-identity v1.0.0/go.mod h1:9IEkIsg3BqcmhT7fV9uO/EWp3VF1b7PYBFrX7x3sN/8=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/Steward-GRC/steward-authz v0.0.0-20261004225933-2e7c82d1efea h1:hypwP7hekyU6aSuY987LmOiNbzRBhIEXnRLNKbhPdvY=

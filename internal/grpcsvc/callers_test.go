@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
 	"github.com/Steward-GRC/steward-workflow/internal/audit"
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 func allWorkflowMethods() []string {
@@ -26,9 +26,9 @@ func allWorkflowMethods() []string {
 }
 
 // callerMethods is every method caller is listed on, with its access.
-func callerMethods(caller string) map[string]workloadauth.Access {
+func callerMethods(caller string) map[string]workloadidentity.Access {
 	p := CallerPolicy()
-	got := map[string]workloadauth.Access{}
+	got := map[string]workloadidentity.Access{}
 	for _, m := range allWorkflowMethods() {
 		if a, ok := p.Lookup(m, caller); ok {
 			got[m] = a
@@ -38,19 +38,19 @@ func callerMethods(caller string) map[string]workloadauth.Access {
 }
 
 func TestCallerPolicyGatewayCallsEveryMethodButTheMergeReassignOnBehalf(t *testing.T) {
-	want := map[string]workloadauth.Access{}
+	want := map[string]workloadidentity.Access{}
 	for _, m := range allWorkflowMethods() {
 		if m != workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName {
-			want[m] = workloadauth.OnBehalf
+			want[m] = workloadidentity.OnBehalf
 		}
 	}
 	require.Equal(t, want, callerMethods(CallerGateway))
 }
 
 func TestCallerPolicyLetsIdentityReassignAndReadPendingTasksOnBehalf(t *testing.T) {
-	require.Equal(t, map[string]workloadauth.Access{
-		workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName: workloadauth.OnBehalf,
-		workflowv1.WorkflowService_ListPendingTasks_FullMethodName:          workloadauth.OnBehalf,
+	require.Equal(t, map[string]workloadidentity.Access{
+		workflowv1.WorkflowService_ReassignUserWorkflowItems_FullMethodName: workloadidentity.OnBehalf,
+		workflowv1.WorkflowService_ListPendingTasks_FullMethodName:          workloadidentity.OnBehalf,
 	}, callerMethods(CallerIdentity), "identity's account merge and delete check call these, passing the admin")
 }
 
@@ -81,11 +81,11 @@ func (r *recordingEmitter) Emit(_ context.Context, ev audit.Event) error {
 func TestAuditDenialRecordsTheCallerNotAClaimedUser(t *testing.T) {
 	rec := &recordingEmitter{}
 	hook := AuditDenial(rec, log.Nop())
-	hook(context.Background(), workloadauth.Denial{
-		Method: workflowv1.WorkflowService_Signal_FullMethodName, Code: codes.PermissionDenied, Reason: workloadauth.ReasonMethodNotAllowed,
-		Caller: workloadauth.Caller{Name: "reporting", ServiceAccount: "steward/steward-reporting"},
+	hook(context.Background(), workloadidentity.Denial{
+		Method: workflowv1.WorkflowService_Signal_FullMethodName, Code: codes.PermissionDenied, Reason: workloadidentity.ReasonMethodNotAllowed,
+		Caller: workloadidentity.Caller{Name: "reporting", ServiceAccount: "steward/steward-reporting"},
 	})
-	hook(context.Background(), workloadauth.Denial{Method: "/m", Code: codes.Unauthenticated, Reason: workloadauth.ReasonNoToken})
+	hook(context.Background(), workloadidentity.Denial{Method: "/m", Code: codes.Unauthenticated, Reason: workloadidentity.ReasonNoToken})
 	require.Len(t, rec.evs, 2)
 	require.Equal(t, audit.TierAudit, rec.evs[0].Tier)
 	require.Equal(t, "rpc.denied", rec.evs[0].Action)
@@ -93,7 +93,7 @@ func TestAuditDenialRecordsTheCallerNotAClaimedUser(t *testing.T) {
 	require.Equal(t, workflowv1.WorkflowService_Signal_FullMethodName, rec.evs[0].Subject)
 	require.Equal(t, map[string]string{
 		"method": workflowv1.WorkflowService_Signal_FullMethodName, "caller": "reporting", "service_account": "steward/steward-reporting",
-		"code": "PermissionDenied", "reason": workloadauth.ReasonMethodNotAllowed,
+		"code": "PermissionDenied", "reason": workloadidentity.ReasonMethodNotAllowed,
 	}, rec.evs[0].Attributes)
 	require.Equal(t, "service:unauthenticated", rec.evs[1].ActorUserID)
 }

@@ -51,6 +51,9 @@ method in workflow's allow-list (`internal/grpcsvc/callers.go`):
   runs. Workflow logs a warning at start-up and every 5 minutes, and readiness reports
   `workloadauth` degraded. With neither `WORKLOAD_OIDC_ISSUER` nor `WORKLOAD_AUTH=disabled`,
   workflow doesn't start.
+- **Library:** service-to-service authentication comes from `github.com/Bugs5382/go-workload-identity`;
+  Steward's audience (`steward`) and caller-name mapping (`steward-<name>` is the caller `<name>`) are
+  supplied in `internal/config` (`config.StewardWorkload`).
 - **Outbound:** workflow sends its own token (`WORKLOAD_TOKEN_FILE`) on every call to core and
   identity. Both list it as acting as itself.
 
