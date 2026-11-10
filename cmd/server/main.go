@@ -29,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
 	corev1 "github.com/Steward-GRC/steward-workflow/gen/go/thirdparty/core/v1"
 	identityv1 "github.com/Steward-GRC/steward-workflow/gen/go/thirdparty/identity/v1"
@@ -45,7 +46,6 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/server"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 	"github.com/Steward-GRC/steward-workflow/internal/worker"
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
 )
 
 const serviceName = "workflow"
@@ -198,14 +198,14 @@ func run(ctx context.Context, logger log.Logger) error {
 	}
 	var auth *server.Auth
 	if cfg.WorkloadAuthEnabled {
-		v, err := workloadauth.NewVerifier(cfg.WorkloadAuth, logger)
+		v, err := workloadidentity.NewVerifier(cfg.WorkloadAuth, logger)
 		if err != nil {
 			return fmt.Errorf("workload auth: %w", err)
 		}
 		go v.Run(ctx)
 		deps.JWKS = readiness.RecheckEvery(v.Refresh, jwksRecheck, time.Now)
-		auth = &server.Auth{Verifier: v, Policy: grpcsvc.CallerPolicy(), Options: []workloadauth.Option{
-			workloadauth.WithDenyHook(grpcsvc.AuditDenial(auditor, logger)),
+		auth = &server.Auth{Verifier: v, Policy: grpcsvc.CallerPolicy(), Options: []workloadidentity.Option{
+			workloadidentity.WithDenyHook(grpcsvc.AuditDenial(auditor, logger)),
 		}}
 		logger.Info("service-to-service authentication on",
 			log.F("issuer", cfg.WorkloadAuth.Issuer), log.F("audience", cfg.WorkloadAuth.Audience),
@@ -214,7 +214,7 @@ func run(ctx context.Context, logger log.Logger) error {
 			log.F("allowed_serviceaccounts", strings.Join(cfg.WorkloadAuth.AllowedServiceAccounts, ",")))
 	} else {
 		deps.WorkloadAuthDisabled = true
-		go workloadauth.WarnDisabled(ctx, logger, workloadauth.DisabledWarnInterval)
+		go workloadidentity.WarnDisabled(ctx, logger, workloadidentity.DisabledWarnInterval)
 	}
 	checker, err := readiness.New(deps, health.WithTTL(5*time.Second), health.WithTimeout(2*time.Second), health.WithLogger(logger))
 	if err != nil {

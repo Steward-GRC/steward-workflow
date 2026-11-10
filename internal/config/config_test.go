@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Steward-GRC/steward-workflow/internal/workloadauth"
+	workloadidentity "github.com/Bugs5382/go-workload-identity"
 )
 
 func env(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
@@ -33,8 +33,8 @@ func TestLoadDefaults(t *testing.T) {
 	require.Equal(t, 72, c.StageSLAHours)
 	require.Equal(t, 48, c.StageReminderHours)
 	require.True(t, c.WorkloadAuthEnabled, "workload auth is on unless switched off")
-	require.Equal(t, workloadauth.Config{
-		Issuer: "https://issuer.example.org", Audience: "steward", AllowedServiceAccounts: []string{"steward/steward-gateway"},
+	require.Equal(t, workloadidentity.Config{
+		Issuer: "https://issuer.example.org", Audience: "steward", ServiceAccountPrefix: WorkloadServiceAccountPrefix, AllowedServiceAccounts: []string{"steward/steward-gateway"},
 	}, c.WorkloadAuth)
 	require.Equal(t, "/var/run/secrets/steward/token", c.TokenFile, "with auth on, workflow sends its own token by default")
 	require.Equal(t, "identity:9090", c.IdentityAddr)
@@ -74,9 +74,9 @@ func TestLoadReadsEveryWorkloadSetting(t *testing.T) {
 	}
 	c, err := Load(env(m))
 	require.NoError(t, err)
-	require.Equal(t, workloadauth.Config{
+	require.Equal(t, workloadidentity.Config{
 		Issuer: "https://issuer.example.org", JWKSURL: "https://issuer.example.org/openid/v1/jwks", CAFile: "/oidc/ca.crt",
-		BearerFile: "/oidc/token", Audience: "steward", AllowedServiceAccounts: []string{"steward/steward-gateway", "steward/steward-identity"},
+		BearerFile: "/oidc/token", Audience: "steward", ServiceAccountPrefix: WorkloadServiceAccountPrefix, AllowedServiceAccounts: []string{"steward/steward-gateway", "steward/steward-identity"},
 	}, c.WorkloadAuth)
 	require.Equal(t, "/run/token", c.TokenFile)
 }
@@ -85,7 +85,7 @@ func TestLoadFailsClosedWithoutWorkloadAuth(t *testing.T) {
 	m := required()
 	delete(m, "WORKLOAD_OIDC_ISSUER")
 	_, err := Load(env(m))
-	require.ErrorIs(t, err, workloadauth.ErrNotConfigured, "no issuer and no explicit off switch stops the boot")
+	require.ErrorIs(t, err, workloadidentity.ErrNotConfigured, "no issuer and no explicit off switch stops the boot")
 }
 
 func TestLoadTurnsWorkloadAuthOffOnlyWhenDisabled(t *testing.T) {

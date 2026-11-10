@@ -87,6 +87,4 @@ sends its own workload token on each call:
   the health the outage reconciler watches.
 
 It publishes steward-audit's `AuditEvent`. Bump a pin, run `scripts/proto-generate.sh` and commit
-`gen/` together. `STEWARD_CORE_REF` also pins `internal/workloadauth`, a byte-identical copy of
-steward-core's; `scripts/workloadauth-check.sh` (run in CI) fails on any difference. Never edit the
-copy here: change it in steward-core, move the pin, and copy it again.
+`gen/` together.
