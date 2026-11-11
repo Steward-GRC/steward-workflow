@@ -97,3 +97,8 @@ func TestAuditDenialRecordsTheCallerNotAClaimedUser(t *testing.T) {
 	}, rec.evs[0].Attributes)
 	require.Equal(t, "service:unauthenticated", rec.evs[1].ActorUserID)
 }
+
+func TestCallerPolicyLetsOnlyTheGatewayListDecidedApprovals(t *testing.T) {
+	got := CallerPolicy()[workflowv1.WorkflowService_ListDecidedApprovals_FullMethodName]
+	require.Equal(t, map[string]workloadidentity.Access{CallerGateway: workloadidentity.OnBehalf}, got)
+}

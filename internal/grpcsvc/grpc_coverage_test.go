@@ -49,7 +49,7 @@ func TestGRPCRPCCoverage(t *testing.T) {
 			name:          "WorkflowServiceServer",
 			interfaceType: reflect.TypeFor[workflowv1.WorkflowServiceServer](),
 			handler:       &WorkflowServer{},
-			wantInvoked:   17,
+			wantInvoked:   18,
 		},
 	}
 

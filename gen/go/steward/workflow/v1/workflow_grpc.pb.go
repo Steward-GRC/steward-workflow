@@ -27,6 +27,7 @@ const (
 	WorkflowService_GetStatus_FullMethodName                 = "/steward.workflow.v1.WorkflowService/GetStatus"
 	WorkflowService_ListPendingTasks_FullMethodName          = "/steward.workflow.v1.WorkflowService/ListPendingTasks"
 	WorkflowService_ListUpcomingTasks_FullMethodName         = "/steward.workflow.v1.WorkflowService/ListUpcomingTasks"
+	WorkflowService_ListDecidedApprovals_FullMethodName      = "/steward.workflow.v1.WorkflowService/ListDecidedApprovals"
 	WorkflowService_SwapAssignee_FullMethodName              = "/steward.workflow.v1.WorkflowService/SwapAssignee"
 	WorkflowService_BulkDecide_FullMethodName                = "/steward.workflow.v1.WorkflowService/BulkDecide"
 	WorkflowService_GetAssignmentHistory_FullMethodName      = "/steward.workflow.v1.WorkflowService/GetAssignmentHistory"
@@ -69,6 +70,12 @@ type WorkflowServiceClient interface {
 	// ListUpcomingTasks returns active runs where the approver sits on a stage
 	// that hasn't started yet.
 	ListUpcomingTasks(ctx context.Context, in *ListUpcomingTasksRequest, opts ...grpc.CallOption) (*ListUpcomingTasksResponse, error)
+	// ListDecidedApprovals returns the runs still in review where the user has
+	// decided a seat of their own, one entry per run, newest decision first. A
+	// run that is published, rejected or withdrawn is left out, and so is a seat
+	// that asked for changes (it stays pending). Ids only: the caller adds the
+	// policy title and checks what the user may read.
+	ListDecidedApprovals(ctx context.Context, in *ListDecidedApprovalsRequest, opts ...grpc.CallOption) (*ListDecidedApprovalsResponse, error)
 	// SwapAssignee replaces a pending seat's holder. The initiator role is
 	// checked against the caller: an admin, the seat holder delegating their
 	// own seat, or the workflow's author. Only an admin may pick someone outside
@@ -169,6 +176,16 @@ func (c *workflowServiceClient) ListUpcomingTasks(ctx context.Context, in *ListU
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListUpcomingTasksResponse)
 	err := c.cc.Invoke(ctx, WorkflowService_ListUpcomingTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workflowServiceClient) ListDecidedApprovals(ctx context.Context, in *ListDecidedApprovalsRequest, opts ...grpc.CallOption) (*ListDecidedApprovalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDecidedApprovalsResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_ListDecidedApprovals_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +340,12 @@ type WorkflowServiceServer interface {
 	// ListUpcomingTasks returns active runs where the approver sits on a stage
 	// that hasn't started yet.
 	ListUpcomingTasks(context.Context, *ListUpcomingTasksRequest) (*ListUpcomingTasksResponse, error)
+	// ListDecidedApprovals returns the runs still in review where the user has
+	// decided a seat of their own, one entry per run, newest decision first. A
+	// run that is published, rejected or withdrawn is left out, and so is a seat
+	// that asked for changes (it stays pending). Ids only: the caller adds the
+	// policy title and checks what the user may read.
+	ListDecidedApprovals(context.Context, *ListDecidedApprovalsRequest) (*ListDecidedApprovalsResponse, error)
 	// SwapAssignee replaces a pending seat's holder. The initiator role is
 	// checked against the caller: an admin, the seat holder delegating their
 	// own seat, or the workflow's author. Only an admin may pick someone outside
@@ -393,6 +416,9 @@ func (UnimplementedWorkflowServiceServer) ListPendingTasks(context.Context, *Lis
 }
 func (UnimplementedWorkflowServiceServer) ListUpcomingTasks(context.Context, *ListUpcomingTasksRequest) (*ListUpcomingTasksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListUpcomingTasks not implemented")
+}
+func (UnimplementedWorkflowServiceServer) ListDecidedApprovals(context.Context, *ListDecidedApprovalsRequest) (*ListDecidedApprovalsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDecidedApprovals not implemented")
 }
 func (UnimplementedWorkflowServiceServer) SwapAssignee(context.Context, *SwapAssigneeRequest) (*SwapAssigneeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SwapAssignee not implemented")
@@ -537,6 +563,24 @@ func _WorkflowService_ListUpcomingTasks_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WorkflowServiceServer).ListUpcomingTasks(ctx, req.(*ListUpcomingTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkflowService_ListDecidedApprovals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDecidedApprovalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).ListDecidedApprovals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_ListDecidedApprovals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).ListDecidedApprovals(ctx, req.(*ListDecidedApprovalsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -783,6 +827,10 @@ var WorkflowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListUpcomingTasks",
 			Handler:    _WorkflowService_ListUpcomingTasks_Handler,
+		},
+		{
+			MethodName: "ListDecidedApprovals",
+			Handler:    _WorkflowService_ListDecidedApprovals_Handler,
 		},
 		{
 			MethodName: "SwapAssignee",
