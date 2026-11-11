@@ -637,3 +637,50 @@ func nullableTime(t time.Time) any {
 	}
 	return t
 }
+
+// DecidedSeat is a user's newest decided seat on a run still in review.
+type DecidedSeat struct {
+	PolicyVersionID string
+	RunID           string
+	WorkflowDefID   string
+	WorkflowVersion int
+	// Decision is "approved" or "rejected".
+	Decision  string
+	DecidedAt time.Time
+}
+
+// ListDecidedSeats returns, for each run still in review, the user's newest
+// decided seat (approved or rejected), newest decision first. Their own seats
+// only: a seat that asked for changes is still pending and is not listed, a run
+// that is no longer in review is left out, and so is a decision made before the
+// current run started (a seat left over from an earlier attempt).
+func (a *Assignments) ListDecidedSeats(ctx context.Context, userID string) ([]DecidedSeat, error) {
+	rows, err := a.db.Querier().Query(ctx,
+		`SELECT policy_version_id, run_id, workflow_def_id::text, workflow_version, state, decided_at
+		   FROM (
+		     SELECT DISTINCT ON (r.run_id)
+		            a.policy_version_id, r.run_id, r.workflow_def_id, r.workflow_version, a.state, a.decided_at, a.id
+		       FROM approval_assignments a
+		       JOIN approval_runs r ON r.policy_version_id = a.policy_version_id AND r.status = 'in_review'
+		      WHERE a.user_id = $1
+		        AND a.state IN ('approved', 'rejected')
+		        AND a.decided_at IS NOT NULL
+		        AND a.decided_at >= r.started_at
+		      ORDER BY r.run_id, a.decided_at DESC, a.id
+		   ) newest
+		  ORDER BY decided_at DESC, run_id`,
+		userID)
+	if err != nil {
+		return nil, fmt.Errorf("list decided seats: %w", err)
+	}
+	defer rows.Close()
+	var out []DecidedSeat
+	for rows.Next() {
+		var d DecidedSeat
+		if err := rows.Scan(&d.PolicyVersionID, &d.RunID, &d.WorkflowDefID, &d.WorkflowVersion, &d.Decision, &d.DecidedAt); err != nil {
+			return nil, fmt.Errorf("scan decided seat: %w", err)
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}

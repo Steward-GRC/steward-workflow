@@ -105,6 +105,9 @@ type AssignmentStore interface {
 	// ListStageEntries lists the stages a run has entered; none for a run from
 	// before they were recorded.
 	ListStageEntries(ctx context.Context, runID string) ([]int, error)
+	// ListDecidedSeats lists the user's newest decided seat on each run still
+	// in review, newest decision first.
+	ListDecidedSeats(ctx context.Context, userID string) ([]store.DecidedSeat, error)
 	DecideAssignment(ctx context.Context, in store.DecideAssignmentInput) error
 	// NoteChangesRequested keeps the comment of a request for changes in the
 	// seat's history; the seat stays pending.
@@ -741,46 +744,10 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			}
 		}
 	}
-	// The stages the run has entered. A run from before entries were recorded
-	// has none: it is read from its seats, as it was.
-	var entered map[int]bool
-	maxEntered := -1
-	if s.assignments != nil {
-		entries, eerr := s.assignments.ListStageEntries(ctx, run.RunID)
-		if eerr != nil {
-			s.log.Ctx(ctx).Warn("status: stage entries unreadable; reading the stages from their seats",
-				log.F("policy_version_id", req.GetPolicyVersionId()), log.F("error", eerr.Error()))
-		}
-		if len(entries) > 0 {
-			entered = make(map[int]bool, len(entries))
-			for _, i := range entries {
-				entered[i] = true
-				maxEntered = max(maxEntered, i)
-			}
-		}
-	}
-	legacy := entered == nil
+	currentStageIdx, entered, legacy := s.runStagePosition(ctx, run, len(stageNames))
 	s.log.Ctx(ctx).Debug("status stage entries",
-		log.F("policy_version_id", req.GetPolicyVersionId()), log.F("legacy", legacy), log.F("last_entered", maxEntered))
+		log.F("policy_version_id", req.GetPolicyVersionId()), log.F("legacy", legacy), log.F("current_stage", currentStageIdx))
 
-	var currentStageIdx int
-	switch {
-	case !legacy:
-		// The last stage the run entered, never past the last stage (the
-		// mock's workflowStatus keeps it on the last stage it reached).
-		currentStageIdx = maxEntered
-		if len(stageNames) > 0 {
-			currentStageIdx = min(currentStageIdx, len(stageNames)-1)
-		}
-	default:
-		// With nothing pending the run is past its last stage.
-		currentStageIdx = len(stageNames)
-		if s.assignments != nil {
-			if idx, pending, cerr := s.assignments.CurrentStageIndex(ctx, req.GetPolicyVersionId()); cerr == nil && pending {
-				currentStageIdx = idx
-			}
-		}
-	}
 	var stageAssignees []*workflowv1.StageAssignees
 	var stageUnitProgress []*workflowv1.StageUnitProgressList
 	var stageProgressList []*workflowv1.StageProgress
@@ -910,6 +877,93 @@ func (s *WorkflowServer) ListPendingTasks(ctx context.Context, req *workflowv1.L
 		out = append(out, pt)
 	}
 	return &workflowv1.ListPendingTasksResponse{Tasks: out}, nil
+}
+
+// runStagePosition is the stage the run is on, as GetStatus and the decided
+// approvals list report it. It also returns the stages the run has entered and
+// whether the run is from before entries were recorded (legacy), in which case
+// the stage is read from the seats.
+func (s *WorkflowServer) runStagePosition(ctx context.Context, run store.ApprovalRun, stageCount int) (idx int, entered map[int]bool, legacy bool) {
+	maxEntered := -1
+	if s.assignments != nil {
+		entries, eerr := s.assignments.ListStageEntries(ctx, run.RunID)
+		if eerr != nil {
+			s.log.Ctx(ctx).Warn("status: stage entries unreadable; reading the stages from their seats",
+				log.F("policy_version_id", run.PolicyVersionID), log.F("error", eerr.Error()))
+		}
+		if len(entries) > 0 {
+			entered = make(map[int]bool, len(entries))
+			for _, i := range entries {
+				entered[i] = true
+				maxEntered = max(maxEntered, i)
+			}
+		}
+	}
+	legacy = entered == nil
+	if !legacy {
+		// The last stage the run entered, never past the last stage (the
+		// mock's workflowStatus keeps it on the last stage it reached).
+		idx = maxEntered
+		if stageCount > 0 {
+			idx = min(idx, stageCount-1)
+		}
+		return idx, entered, legacy
+	}
+	// With nothing pending the run is past its last stage.
+	idx = stageCount
+	if s.assignments != nil {
+		if i, pending, cerr := s.assignments.CurrentStageIndex(ctx, run.PolicyVersionID); cerr == nil && pending {
+			idx = i
+		}
+	}
+	return idx, entered, legacy
+}
+
+// ListDecidedApprovals returns the runs still in review where the user has
+// decided a seat of their own, newest decision first. Ids only: the title and
+// what the user may read are the caller's to add. The gateway enforces who may
+// call, as for ListPendingTasks.
+func (s *WorkflowServer) ListDecidedApprovals(ctx context.Context, req *workflowv1.ListDecidedApprovalsRequest) (*workflowv1.ListDecidedApprovalsResponse, error) {
+	userID := req.GetUserId()
+	if userID == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	out := make([]*workflowv1.DecidedApproval, 0)
+	if s.assignments == nil {
+		s.log.Ctx(ctx).Debug("list decided approvals: no assignment store wired")
+		return &workflowv1.ListDecidedApprovalsResponse{Approvals: out}, nil
+	}
+	start := time.Now()
+	seats, err := s.assignments.ListDecidedSeats(ctx, userID)
+	if err != nil {
+		return nil, internalErr(ctx, "list decided seats: %w", err)
+	}
+	s.log.Ctx(ctx).Debug("list decided approvals: seats read",
+		log.F("seats", len(seats)), log.F("duration_ms", time.Since(start).Milliseconds()))
+	for _, d := range seats {
+		stageCount := 0
+		if s.defStore != nil && d.WorkflowDefID != "" {
+			if wd, derr := s.defStore.GetVersion(ctx, d.WorkflowDefID, d.WorkflowVersion); derr == nil {
+				stageCount = len(wd.Stages)
+			} else {
+				s.log.Ctx(ctx).Warn("list decided approvals: workflow definition unreadable; stage count left at 0",
+					log.F("policy_version_id", d.PolicyVersionID), log.F("error", derr.Error()))
+			}
+		}
+		idx, _, legacy := s.runStagePosition(ctx, store.ApprovalRun{PolicyVersionID: d.PolicyVersionID, RunID: d.RunID}, stageCount)
+		s.log.Ctx(ctx).Debug("list decided approvals: entry",
+			log.F("policy_version_id", d.PolicyVersionID), log.F("run_id", d.RunID),
+			log.F("stage", idx), log.F("stage_count", stageCount), log.F("legacy", legacy), log.F("decision", d.Decision))
+		out = append(out, &workflowv1.DecidedApproval{
+			PolicyVersionId: d.PolicyVersionID,
+			RunId:           d.RunID,
+			CurrentStageIdx: toInt32(idx),
+			StageCount:      toInt32(stageCount),
+			Decision:        d.Decision,
+			DecidedAt:       timestamppb.New(d.DecidedAt),
+		})
+	}
+	return &workflowv1.ListDecidedApprovalsResponse{Approvals: out}, nil
 }
 
 // ListUpcomingTasks returns active runs where the approver sits on a stage

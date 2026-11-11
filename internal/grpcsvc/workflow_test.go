@@ -240,6 +240,20 @@ type stubAssignments struct {
 	strictSeats bool
 	// entries are the stages each run (by run id) has entered.
 	entries map[string][]int
+	// decided is what ListDecidedSeats returns for decidedUser.
+	decided     []store.DecidedSeat
+	decidedUser string
+	decidedErr  error
+}
+
+func (s *stubAssignments) ListDecidedSeats(_ context.Context, userID string) ([]store.DecidedSeat, error) {
+	if s.decidedErr != nil {
+		return nil, s.decidedErr
+	}
+	if userID != s.decidedUser {
+		return nil, nil
+	}
+	return s.decided, nil
 }
 
 func (s *stubAssignments) ListStageEntries(_ context.Context, runID string) ([]int, error) {

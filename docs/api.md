@@ -42,6 +42,7 @@ pending group seat.
 | `GetStatus` | The current run's status, stage names, seats and group tallies. |
 | `ListPendingTasks` | The stages awaiting the approver. |
 | `ListUpcomingTasks` | Active runs where the approver sits on a stage not started yet. |
+| `ListDecidedApprovals` | The runs still in review where the user decided a seat of their own: one entry per run, newest decision first, ids only. |
 | `SwapAssignee` | Reassigns a pending seat, as an admin, the seat holder or the workflow's author. |
 | `BulkDecide` | Approves or rejects several of the caller's seats; the decisions share a `bulk_batch_id`. |
 | `GetAssignmentHistory` | One stage's append-only log, with the real actor during act-as. |

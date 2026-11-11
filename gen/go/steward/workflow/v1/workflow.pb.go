@@ -1323,6 +1323,184 @@ func (x *ListUpcomingTasksResponse) GetTasks() []*UpcomingTask {
 	return nil
 }
 
+// DecidedApproval is a run still in review where the user has decided.
+type DecidedApproval struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	PolicyVersionId string                 `protobuf:"bytes,1,opt,name=policy_version_id,json=policyVersionId,proto3" json:"policy_version_id,omitempty"`
+	RunId           string                 `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// current_stage_idx is the stage the run is on, as GetStatus reports it.
+	CurrentStageIdx int32 `protobuf:"varint,3,opt,name=current_stage_idx,json=currentStageIdx,proto3" json:"current_stage_idx,omitempty"`
+	// stage_count is the number of stages in the run's workflow; 0 when the
+	// definition can no longer be read.
+	StageCount int32 `protobuf:"varint,4,opt,name=stage_count,json=stageCount,proto3" json:"stage_count,omitempty"`
+	// decision is "approved" or "rejected": the user's newest decided seat on
+	// the run.
+	Decision      string                 `protobuf:"bytes,5,opt,name=decision,proto3" json:"decision,omitempty"`
+	DecidedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=decided_at,json=decidedAt,proto3" json:"decided_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DecidedApproval) Reset() {
+	*x = DecidedApproval{}
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DecidedApproval) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DecidedApproval) ProtoMessage() {}
+
+func (x *DecidedApproval) ProtoReflect() protoreflect.Message {
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DecidedApproval.ProtoReflect.Descriptor instead.
+func (*DecidedApproval) Descriptor() ([]byte, []int) {
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *DecidedApproval) GetPolicyVersionId() string {
+	if x != nil {
+		return x.PolicyVersionId
+	}
+	return ""
+}
+
+func (x *DecidedApproval) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *DecidedApproval) GetCurrentStageIdx() int32 {
+	if x != nil {
+		return x.CurrentStageIdx
+	}
+	return 0
+}
+
+func (x *DecidedApproval) GetStageCount() int32 {
+	if x != nil {
+		return x.StageCount
+	}
+	return 0
+}
+
+func (x *DecidedApproval) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *DecidedApproval) GetDecidedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAt
+	}
+	return nil
+}
+
+type ListDecidedApprovalsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDecidedApprovalsRequest) Reset() {
+	*x = ListDecidedApprovalsRequest{}
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDecidedApprovalsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDecidedApprovalsRequest) ProtoMessage() {}
+
+func (x *ListDecidedApprovalsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDecidedApprovalsRequest.ProtoReflect.Descriptor instead.
+func (*ListDecidedApprovalsRequest) Descriptor() ([]byte, []int) {
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListDecidedApprovalsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type ListDecidedApprovalsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Approvals     []*DecidedApproval     `protobuf:"bytes,1,rep,name=approvals,proto3" json:"approvals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDecidedApprovalsResponse) Reset() {
+	*x = ListDecidedApprovalsResponse{}
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDecidedApprovalsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDecidedApprovalsResponse) ProtoMessage() {}
+
+func (x *ListDecidedApprovalsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDecidedApprovalsResponse.ProtoReflect.Descriptor instead.
+func (*ListDecidedApprovalsResponse) Descriptor() ([]byte, []int) {
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListDecidedApprovalsResponse) GetApprovals() []*DecidedApproval {
+	if x != nil {
+		return x.Approvals
+	}
+	return nil
+}
+
 type SwapAssigneeRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	PolicyVersionId string                 `protobuf:"bytes,1,opt,name=policy_version_id,json=policyVersionId,proto3" json:"policy_version_id,omitempty"`
@@ -1345,7 +1523,7 @@ type SwapAssigneeRequest struct {
 
 func (x *SwapAssigneeRequest) Reset() {
 	*x = SwapAssigneeRequest{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[19]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1357,7 +1535,7 @@ func (x *SwapAssigneeRequest) String() string {
 func (*SwapAssigneeRequest) ProtoMessage() {}
 
 func (x *SwapAssigneeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[19]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1370,7 +1548,7 @@ func (x *SwapAssigneeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapAssigneeRequest.ProtoReflect.Descriptor instead.
 func (*SwapAssigneeRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{19}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SwapAssigneeRequest) GetPolicyVersionId() string {
@@ -1439,7 +1617,7 @@ type SwapAssigneeResponse struct {
 
 func (x *SwapAssigneeResponse) Reset() {
 	*x = SwapAssigneeResponse{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[20]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1629,7 @@ func (x *SwapAssigneeResponse) String() string {
 func (*SwapAssigneeResponse) ProtoMessage() {}
 
 func (x *SwapAssigneeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[20]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1642,7 @@ func (x *SwapAssigneeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SwapAssigneeResponse.ProtoReflect.Descriptor instead.
 func (*SwapAssigneeResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{20}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SwapAssigneeResponse) GetNewAssignmentId() string {
@@ -1497,7 +1675,7 @@ type Decision struct {
 
 func (x *Decision) Reset() {
 	*x = Decision{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[21]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1509,7 +1687,7 @@ func (x *Decision) String() string {
 func (*Decision) ProtoMessage() {}
 
 func (x *Decision) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[21]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1522,7 +1700,7 @@ func (x *Decision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Decision.ProtoReflect.Descriptor instead.
 func (*Decision) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{21}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Decision) GetPolicyVersionId() string {
@@ -1569,7 +1747,7 @@ type BulkDecideRequest struct {
 
 func (x *BulkDecideRequest) Reset() {
 	*x = BulkDecideRequest{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[22]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1581,7 +1759,7 @@ func (x *BulkDecideRequest) String() string {
 func (*BulkDecideRequest) ProtoMessage() {}
 
 func (x *BulkDecideRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[22]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1594,7 +1772,7 @@ func (x *BulkDecideRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkDecideRequest.ProtoReflect.Descriptor instead.
 func (*BulkDecideRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{22}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *BulkDecideRequest) GetDecisions() []*Decision {
@@ -1619,7 +1797,7 @@ type DecisionResult struct {
 
 func (x *DecisionResult) Reset() {
 	*x = DecisionResult{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[23]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1631,7 +1809,7 @@ func (x *DecisionResult) String() string {
 func (*DecisionResult) ProtoMessage() {}
 
 func (x *DecisionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[23]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1644,7 +1822,7 @@ func (x *DecisionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecisionResult.ProtoReflect.Descriptor instead.
 func (*DecisionResult) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{23}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DecisionResult) GetPolicyVersionId() string {
@@ -1700,7 +1878,7 @@ type BulkDecideResponse struct {
 
 func (x *BulkDecideResponse) Reset() {
 	*x = BulkDecideResponse{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[24]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1712,7 +1890,7 @@ func (x *BulkDecideResponse) String() string {
 func (*BulkDecideResponse) ProtoMessage() {}
 
 func (x *BulkDecideResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[24]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +1903,7 @@ func (x *BulkDecideResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkDecideResponse.ProtoReflect.Descriptor instead.
 func (*BulkDecideResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{24}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *BulkDecideResponse) GetResults() []*DecisionResult {
@@ -1752,7 +1930,7 @@ type GetAssignmentHistoryRequest struct {
 
 func (x *GetAssignmentHistoryRequest) Reset() {
 	*x = GetAssignmentHistoryRequest{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[25]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1764,7 +1942,7 @@ func (x *GetAssignmentHistoryRequest) String() string {
 func (*GetAssignmentHistoryRequest) ProtoMessage() {}
 
 func (x *GetAssignmentHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[25]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1777,7 +1955,7 @@ func (x *GetAssignmentHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAssignmentHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetAssignmentHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{25}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetAssignmentHistoryRequest) GetPolicyVersionId() string {
@@ -1819,7 +1997,7 @@ type AssignmentHistoryEntry struct {
 
 func (x *AssignmentHistoryEntry) Reset() {
 	*x = AssignmentHistoryEntry{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[26]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1831,7 +2009,7 @@ func (x *AssignmentHistoryEntry) String() string {
 func (*AssignmentHistoryEntry) ProtoMessage() {}
 
 func (x *AssignmentHistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[26]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1844,7 +2022,7 @@ func (x *AssignmentHistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignmentHistoryEntry.ProtoReflect.Descriptor instead.
 func (*AssignmentHistoryEntry) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{26}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *AssignmentHistoryEntry) GetId() int64 {
@@ -1933,7 +2111,7 @@ type GetAssignmentHistoryResponse struct {
 
 func (x *GetAssignmentHistoryResponse) Reset() {
 	*x = GetAssignmentHistoryResponse{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[27]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1945,7 +2123,7 @@ func (x *GetAssignmentHistoryResponse) String() string {
 func (*GetAssignmentHistoryResponse) ProtoMessage() {}
 
 func (x *GetAssignmentHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[27]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1958,7 +2136,7 @@ func (x *GetAssignmentHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAssignmentHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetAssignmentHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{27}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetAssignmentHistoryResponse) GetEntries() []*AssignmentHistoryEntry {
@@ -1981,7 +2159,7 @@ type GetStageEligiblePoolRequest struct {
 
 func (x *GetStageEligiblePoolRequest) Reset() {
 	*x = GetStageEligiblePoolRequest{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[28]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1993,7 +2171,7 @@ func (x *GetStageEligiblePoolRequest) String() string {
 func (*GetStageEligiblePoolRequest) ProtoMessage() {}
 
 func (x *GetStageEligiblePoolRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[28]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2006,7 +2184,7 @@ func (x *GetStageEligiblePoolRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStageEligiblePoolRequest.ProtoReflect.Descriptor instead.
 func (*GetStageEligiblePoolRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{28}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetStageEligiblePoolRequest) GetPolicyVersionId() string {
@@ -2043,7 +2221,7 @@ type GetStageEligiblePoolResponse struct {
 
 func (x *GetStageEligiblePoolResponse) Reset() {
 	*x = GetStageEligiblePoolResponse{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[29]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2233,7 @@ func (x *GetStageEligiblePoolResponse) String() string {
 func (*GetStageEligiblePoolResponse) ProtoMessage() {}
 
 func (x *GetStageEligiblePoolResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[29]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2246,7 @@ func (x *GetStageEligiblePoolResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStageEligiblePoolResponse.ProtoReflect.Descriptor instead.
 func (*GetStageEligiblePoolResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{29}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetStageEligiblePoolResponse) GetStageIndex() int32 {
@@ -2110,7 +2288,7 @@ type ReassignUserWorkflowItemsRequest struct {
 
 func (x *ReassignUserWorkflowItemsRequest) Reset() {
 	*x = ReassignUserWorkflowItemsRequest{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[30]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2122,7 +2300,7 @@ func (x *ReassignUserWorkflowItemsRequest) String() string {
 func (*ReassignUserWorkflowItemsRequest) ProtoMessage() {}
 
 func (x *ReassignUserWorkflowItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[30]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2135,7 +2313,7 @@ func (x *ReassignUserWorkflowItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReassignUserWorkflowItemsRequest.ProtoReflect.Descriptor instead.
 func (*ReassignUserWorkflowItemsRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{30}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ReassignUserWorkflowItemsRequest) GetFromUserId() string {
@@ -2188,7 +2366,7 @@ type ReassignUserWorkflowItemsResponse struct {
 
 func (x *ReassignUserWorkflowItemsResponse) Reset() {
 	*x = ReassignUserWorkflowItemsResponse{}
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[31]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2200,7 +2378,7 @@ func (x *ReassignUserWorkflowItemsResponse) String() string {
 func (*ReassignUserWorkflowItemsResponse) ProtoMessage() {}
 
 func (x *ReassignUserWorkflowItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[31]
+	mi := &file_steward_workflow_v1_workflow_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2213,7 +2391,7 @@ func (x *ReassignUserWorkflowItemsResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ReassignUserWorkflowItemsResponse.ProtoReflect.Descriptor instead.
 func (*ReassignUserWorkflowItemsResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{31}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ReassignUserWorkflowItemsResponse) GetAssignmentsReassigned() int32 {
@@ -2333,7 +2511,20 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x18ListUpcomingTasksRequest\x12(\n" +
 	"\x10approver_user_id\x18\x01 \x01(\tR\x0eapproverUserId\"T\n" +
 	"\x19ListUpcomingTasksResponse\x127\n" +
-	"\x05tasks\x18\x01 \x03(\v2!.steward.workflow.v1.UpcomingTaskR\x05tasks\"\xdd\x02\n" +
+	"\x05tasks\x18\x01 \x03(\v2!.steward.workflow.v1.UpcomingTaskR\x05tasks\"\xf8\x01\n" +
+	"\x0fDecidedApproval\x12*\n" +
+	"\x11policy_version_id\x18\x01 \x01(\tR\x0fpolicyVersionId\x12\x15\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12*\n" +
+	"\x11current_stage_idx\x18\x03 \x01(\x05R\x0fcurrentStageIdx\x12\x1f\n" +
+	"\vstage_count\x18\x04 \x01(\x05R\n" +
+	"stageCount\x12\x1a\n" +
+	"\bdecision\x18\x05 \x01(\tR\bdecision\x129\n" +
+	"\n" +
+	"decided_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\"6\n" +
+	"\x1bListDecidedApprovalsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"b\n" +
+	"\x1cListDecidedApprovalsResponse\x12B\n" +
+	"\tapprovals\x18\x01 \x03(\v2$.steward.workflow.v1.DecidedApprovalR\tapprovals\"\xdd\x02\n" +
 	"\x13SwapAssigneeRequest\x12*\n" +
 	"\x11policy_version_id\x18\x01 \x01(\tR\x0fpolicyVersionId\x12\x1f\n" +
 	"\vstage_index\x18\x02 \x01(\x05R\n" +
@@ -2420,13 +2611,14 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\fDecisionType\x12\x1d\n" +
 	"\x19DECISION_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15DECISION_TYPE_APPROVE\x10\x01\x12\x18\n" +
-	"\x14DECISION_TYPE_REJECT\x10\x022\xf0\x0e\n" +
+	"\x14DECISION_TYPE_REJECT\x10\x022\xed\x0f\n" +
 	"\x0fWorkflowService\x12Q\n" +
 	"\x06Submit\x12\".steward.workflow.v1.SubmitRequest\x1a#.steward.workflow.v1.SubmitResponse\x12Q\n" +
 	"\x06Signal\x12\".steward.workflow.v1.SignalRequest\x1a#.steward.workflow.v1.SignalResponse\x12Z\n" +
 	"\tGetStatus\x12%.steward.workflow.v1.GetStatusRequest\x1a&.steward.workflow.v1.GetStatusResponse\x12o\n" +
 	"\x10ListPendingTasks\x12,.steward.workflow.v1.ListPendingTasksRequest\x1a-.steward.workflow.v1.ListPendingTasksResponse\x12r\n" +
-	"\x11ListUpcomingTasks\x12-.steward.workflow.v1.ListUpcomingTasksRequest\x1a..steward.workflow.v1.ListUpcomingTasksResponse\x12c\n" +
+	"\x11ListUpcomingTasks\x12-.steward.workflow.v1.ListUpcomingTasksRequest\x1a..steward.workflow.v1.ListUpcomingTasksResponse\x12{\n" +
+	"\x14ListDecidedApprovals\x120.steward.workflow.v1.ListDecidedApprovalsRequest\x1a1.steward.workflow.v1.ListDecidedApprovalsResponse\x12c\n" +
 	"\fSwapAssignee\x12(.steward.workflow.v1.SwapAssigneeRequest\x1a).steward.workflow.v1.SwapAssigneeResponse\x12]\n" +
 	"\n" +
 	"BulkDecide\x12&.steward.workflow.v1.BulkDecideRequest\x1a'.steward.workflow.v1.BulkDecideResponse\x12{\n" +
@@ -2454,7 +2646,7 @@ func file_steward_workflow_v1_workflow_proto_rawDescGZIP() []byte {
 }
 
 var file_steward_workflow_v1_workflow_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_steward_workflow_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_steward_workflow_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_steward_workflow_v1_workflow_proto_goTypes = []any{
 	(InitiatorRole)(0),                        // 0: steward.workflow.v1.InitiatorRole
 	(DecisionType)(0),                         // 1: steward.workflow.v1.DecisionType
@@ -2477,95 +2669,102 @@ var file_steward_workflow_v1_workflow_proto_goTypes = []any{
 	(*UpcomingTask)(nil),                      // 18: steward.workflow.v1.UpcomingTask
 	(*ListUpcomingTasksRequest)(nil),          // 19: steward.workflow.v1.ListUpcomingTasksRequest
 	(*ListUpcomingTasksResponse)(nil),         // 20: steward.workflow.v1.ListUpcomingTasksResponse
-	(*SwapAssigneeRequest)(nil),               // 21: steward.workflow.v1.SwapAssigneeRequest
-	(*SwapAssigneeResponse)(nil),              // 22: steward.workflow.v1.SwapAssigneeResponse
-	(*Decision)(nil),                          // 23: steward.workflow.v1.Decision
-	(*BulkDecideRequest)(nil),                 // 24: steward.workflow.v1.BulkDecideRequest
-	(*DecisionResult)(nil),                    // 25: steward.workflow.v1.DecisionResult
-	(*BulkDecideResponse)(nil),                // 26: steward.workflow.v1.BulkDecideResponse
-	(*GetAssignmentHistoryRequest)(nil),       // 27: steward.workflow.v1.GetAssignmentHistoryRequest
-	(*AssignmentHistoryEntry)(nil),            // 28: steward.workflow.v1.AssignmentHistoryEntry
-	(*GetAssignmentHistoryResponse)(nil),      // 29: steward.workflow.v1.GetAssignmentHistoryResponse
-	(*GetStageEligiblePoolRequest)(nil),       // 30: steward.workflow.v1.GetStageEligiblePoolRequest
-	(*GetStageEligiblePoolResponse)(nil),      // 31: steward.workflow.v1.GetStageEligiblePoolResponse
-	(*ReassignUserWorkflowItemsRequest)(nil),  // 32: steward.workflow.v1.ReassignUserWorkflowItemsRequest
-	(*ReassignUserWorkflowItemsResponse)(nil), // 33: steward.workflow.v1.ReassignUserWorkflowItemsResponse
-	(SignalType)(0),                           // 34: steward.workflow.v1.SignalType
-	(*timestamppb.Timestamp)(nil),             // 35: google.protobuf.Timestamp
-	(ApprovalStatus)(0),                       // 36: steward.workflow.v1.ApprovalStatus
-	(*ListWorkflowDefsRequest)(nil),           // 37: steward.workflow.v1.ListWorkflowDefsRequest
-	(*GetWorkflowDefRequest)(nil),             // 38: steward.workflow.v1.GetWorkflowDefRequest
-	(*CreateWorkflowDefRequest)(nil),          // 39: steward.workflow.v1.CreateWorkflowDefRequest
-	(*UpdateWorkflowDefRequest)(nil),          // 40: steward.workflow.v1.UpdateWorkflowDefRequest
-	(*ArchiveWorkflowDefRequest)(nil),         // 41: steward.workflow.v1.ArchiveWorkflowDefRequest
-	(*SetWorkflowVetoEnabledRequest)(nil),     // 42: steward.workflow.v1.SetWorkflowVetoEnabledRequest
-	(*ListWorkflowDefsResponse)(nil),          // 43: steward.workflow.v1.ListWorkflowDefsResponse
-	(*GetWorkflowDefResponse)(nil),            // 44: steward.workflow.v1.GetWorkflowDefResponse
-	(*CreateWorkflowDefResponse)(nil),         // 45: steward.workflow.v1.CreateWorkflowDefResponse
-	(*UpdateWorkflowDefResponse)(nil),         // 46: steward.workflow.v1.UpdateWorkflowDefResponse
-	(*ArchiveWorkflowDefResponse)(nil),        // 47: steward.workflow.v1.ArchiveWorkflowDefResponse
-	(*SetWorkflowVetoEnabledResponse)(nil),    // 48: steward.workflow.v1.SetWorkflowVetoEnabledResponse
+	(*DecidedApproval)(nil),                   // 21: steward.workflow.v1.DecidedApproval
+	(*ListDecidedApprovalsRequest)(nil),       // 22: steward.workflow.v1.ListDecidedApprovalsRequest
+	(*ListDecidedApprovalsResponse)(nil),      // 23: steward.workflow.v1.ListDecidedApprovalsResponse
+	(*SwapAssigneeRequest)(nil),               // 24: steward.workflow.v1.SwapAssigneeRequest
+	(*SwapAssigneeResponse)(nil),              // 25: steward.workflow.v1.SwapAssigneeResponse
+	(*Decision)(nil),                          // 26: steward.workflow.v1.Decision
+	(*BulkDecideRequest)(nil),                 // 27: steward.workflow.v1.BulkDecideRequest
+	(*DecisionResult)(nil),                    // 28: steward.workflow.v1.DecisionResult
+	(*BulkDecideResponse)(nil),                // 29: steward.workflow.v1.BulkDecideResponse
+	(*GetAssignmentHistoryRequest)(nil),       // 30: steward.workflow.v1.GetAssignmentHistoryRequest
+	(*AssignmentHistoryEntry)(nil),            // 31: steward.workflow.v1.AssignmentHistoryEntry
+	(*GetAssignmentHistoryResponse)(nil),      // 32: steward.workflow.v1.GetAssignmentHistoryResponse
+	(*GetStageEligiblePoolRequest)(nil),       // 33: steward.workflow.v1.GetStageEligiblePoolRequest
+	(*GetStageEligiblePoolResponse)(nil),      // 34: steward.workflow.v1.GetStageEligiblePoolResponse
+	(*ReassignUserWorkflowItemsRequest)(nil),  // 35: steward.workflow.v1.ReassignUserWorkflowItemsRequest
+	(*ReassignUserWorkflowItemsResponse)(nil), // 36: steward.workflow.v1.ReassignUserWorkflowItemsResponse
+	(SignalType)(0),                           // 37: steward.workflow.v1.SignalType
+	(*timestamppb.Timestamp)(nil),             // 38: google.protobuf.Timestamp
+	(ApprovalStatus)(0),                       // 39: steward.workflow.v1.ApprovalStatus
+	(*ListWorkflowDefsRequest)(nil),           // 40: steward.workflow.v1.ListWorkflowDefsRequest
+	(*GetWorkflowDefRequest)(nil),             // 41: steward.workflow.v1.GetWorkflowDefRequest
+	(*CreateWorkflowDefRequest)(nil),          // 42: steward.workflow.v1.CreateWorkflowDefRequest
+	(*UpdateWorkflowDefRequest)(nil),          // 43: steward.workflow.v1.UpdateWorkflowDefRequest
+	(*ArchiveWorkflowDefRequest)(nil),         // 44: steward.workflow.v1.ArchiveWorkflowDefRequest
+	(*SetWorkflowVetoEnabledRequest)(nil),     // 45: steward.workflow.v1.SetWorkflowVetoEnabledRequest
+	(*ListWorkflowDefsResponse)(nil),          // 46: steward.workflow.v1.ListWorkflowDefsResponse
+	(*GetWorkflowDefResponse)(nil),            // 47: steward.workflow.v1.GetWorkflowDefResponse
+	(*CreateWorkflowDefResponse)(nil),         // 48: steward.workflow.v1.CreateWorkflowDefResponse
+	(*UpdateWorkflowDefResponse)(nil),         // 49: steward.workflow.v1.UpdateWorkflowDefResponse
+	(*ArchiveWorkflowDefResponse)(nil),        // 50: steward.workflow.v1.ArchiveWorkflowDefResponse
+	(*SetWorkflowVetoEnabledResponse)(nil),    // 51: steward.workflow.v1.SetWorkflowVetoEnabledResponse
 }
 var file_steward_workflow_v1_workflow_proto_depIdxs = []int32{
-	34, // 0: steward.workflow.v1.SignalRequest.signal:type_name -> steward.workflow.v1.SignalType
-	35, // 1: steward.workflow.v1.StageAssignee.decided_at:type_name -> google.protobuf.Timestamp
+	37, // 0: steward.workflow.v1.SignalRequest.signal:type_name -> steward.workflow.v1.SignalType
+	38, // 1: steward.workflow.v1.StageAssignee.decided_at:type_name -> google.protobuf.Timestamp
 	9,  // 2: steward.workflow.v1.StageAssignees.assignees:type_name -> steward.workflow.v1.StageAssignee
 	11, // 3: steward.workflow.v1.StageUnitProgressList.units:type_name -> steward.workflow.v1.StageUnitProgress
-	36, // 4: steward.workflow.v1.GetStatusResponse.status:type_name -> steward.workflow.v1.ApprovalStatus
+	39, // 4: steward.workflow.v1.GetStatusResponse.status:type_name -> steward.workflow.v1.ApprovalStatus
 	10, // 5: steward.workflow.v1.GetStatusResponse.stage_assignees:type_name -> steward.workflow.v1.StageAssignees
 	12, // 6: steward.workflow.v1.GetStatusResponse.stage_unit_progress:type_name -> steward.workflow.v1.StageUnitProgressList
-	35, // 7: steward.workflow.v1.GetStatusResponse.submitted_at:type_name -> google.protobuf.Timestamp
+	38, // 7: steward.workflow.v1.GetStatusResponse.submitted_at:type_name -> google.protobuf.Timestamp
 	14, // 8: steward.workflow.v1.GetStatusResponse.stage_progress:type_name -> steward.workflow.v1.StageProgress
-	35, // 9: steward.workflow.v1.StageProgress.due_at:type_name -> google.protobuf.Timestamp
-	35, // 10: steward.workflow.v1.PendingTask.due_at:type_name -> google.protobuf.Timestamp
+	38, // 9: steward.workflow.v1.StageProgress.due_at:type_name -> google.protobuf.Timestamp
+	38, // 10: steward.workflow.v1.PendingTask.due_at:type_name -> google.protobuf.Timestamp
 	15, // 11: steward.workflow.v1.ListPendingTasksResponse.tasks:type_name -> steward.workflow.v1.PendingTask
 	18, // 12: steward.workflow.v1.ListUpcomingTasksResponse.tasks:type_name -> steward.workflow.v1.UpcomingTask
-	0,  // 13: steward.workflow.v1.SwapAssigneeRequest.initiator_role:type_name -> steward.workflow.v1.InitiatorRole
-	35, // 14: steward.workflow.v1.SwapAssigneeResponse.new_sla_deadline_at:type_name -> google.protobuf.Timestamp
-	1,  // 15: steward.workflow.v1.Decision.decision:type_name -> steward.workflow.v1.DecisionType
-	23, // 16: steward.workflow.v1.BulkDecideRequest.decisions:type_name -> steward.workflow.v1.Decision
-	25, // 17: steward.workflow.v1.BulkDecideResponse.results:type_name -> steward.workflow.v1.DecisionResult
-	35, // 18: steward.workflow.v1.AssignmentHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
-	28, // 19: steward.workflow.v1.GetAssignmentHistoryResponse.entries:type_name -> steward.workflow.v1.AssignmentHistoryEntry
-	4,  // 20: steward.workflow.v1.WorkflowService.Submit:input_type -> steward.workflow.v1.SubmitRequest
-	6,  // 21: steward.workflow.v1.WorkflowService.Signal:input_type -> steward.workflow.v1.SignalRequest
-	8,  // 22: steward.workflow.v1.WorkflowService.GetStatus:input_type -> steward.workflow.v1.GetStatusRequest
-	16, // 23: steward.workflow.v1.WorkflowService.ListPendingTasks:input_type -> steward.workflow.v1.ListPendingTasksRequest
-	19, // 24: steward.workflow.v1.WorkflowService.ListUpcomingTasks:input_type -> steward.workflow.v1.ListUpcomingTasksRequest
-	21, // 25: steward.workflow.v1.WorkflowService.SwapAssignee:input_type -> steward.workflow.v1.SwapAssigneeRequest
-	24, // 26: steward.workflow.v1.WorkflowService.BulkDecide:input_type -> steward.workflow.v1.BulkDecideRequest
-	27, // 27: steward.workflow.v1.WorkflowService.GetAssignmentHistory:input_type -> steward.workflow.v1.GetAssignmentHistoryRequest
-	30, // 28: steward.workflow.v1.WorkflowService.GetStageEligiblePool:input_type -> steward.workflow.v1.GetStageEligiblePoolRequest
-	32, // 29: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:input_type -> steward.workflow.v1.ReassignUserWorkflowItemsRequest
-	37, // 30: steward.workflow.v1.WorkflowService.ListWorkflowDefs:input_type -> steward.workflow.v1.ListWorkflowDefsRequest
-	38, // 31: steward.workflow.v1.WorkflowService.GetWorkflowDef:input_type -> steward.workflow.v1.GetWorkflowDefRequest
-	39, // 32: steward.workflow.v1.WorkflowService.CreateWorkflowDef:input_type -> steward.workflow.v1.CreateWorkflowDefRequest
-	40, // 33: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:input_type -> steward.workflow.v1.UpdateWorkflowDefRequest
-	41, // 34: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:input_type -> steward.workflow.v1.ArchiveWorkflowDefRequest
-	42, // 35: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:input_type -> steward.workflow.v1.SetWorkflowVetoEnabledRequest
-	2,  // 36: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
-	5,  // 37: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
-	7,  // 38: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
-	13, // 39: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
-	17, // 40: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
-	20, // 41: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
-	22, // 42: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
-	26, // 43: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
-	29, // 44: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
-	31, // 45: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
-	33, // 46: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
-	43, // 47: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
-	44, // 48: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
-	45, // 49: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
-	46, // 50: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
-	47, // 51: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
-	48, // 52: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:output_type -> steward.workflow.v1.SetWorkflowVetoEnabledResponse
-	3,  // 53: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
-	37, // [37:54] is the sub-list for method output_type
-	20, // [20:37] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	38, // 13: steward.workflow.v1.DecidedApproval.decided_at:type_name -> google.protobuf.Timestamp
+	21, // 14: steward.workflow.v1.ListDecidedApprovalsResponse.approvals:type_name -> steward.workflow.v1.DecidedApproval
+	0,  // 15: steward.workflow.v1.SwapAssigneeRequest.initiator_role:type_name -> steward.workflow.v1.InitiatorRole
+	38, // 16: steward.workflow.v1.SwapAssigneeResponse.new_sla_deadline_at:type_name -> google.protobuf.Timestamp
+	1,  // 17: steward.workflow.v1.Decision.decision:type_name -> steward.workflow.v1.DecisionType
+	26, // 18: steward.workflow.v1.BulkDecideRequest.decisions:type_name -> steward.workflow.v1.Decision
+	28, // 19: steward.workflow.v1.BulkDecideResponse.results:type_name -> steward.workflow.v1.DecisionResult
+	38, // 20: steward.workflow.v1.AssignmentHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
+	31, // 21: steward.workflow.v1.GetAssignmentHistoryResponse.entries:type_name -> steward.workflow.v1.AssignmentHistoryEntry
+	4,  // 22: steward.workflow.v1.WorkflowService.Submit:input_type -> steward.workflow.v1.SubmitRequest
+	6,  // 23: steward.workflow.v1.WorkflowService.Signal:input_type -> steward.workflow.v1.SignalRequest
+	8,  // 24: steward.workflow.v1.WorkflowService.GetStatus:input_type -> steward.workflow.v1.GetStatusRequest
+	16, // 25: steward.workflow.v1.WorkflowService.ListPendingTasks:input_type -> steward.workflow.v1.ListPendingTasksRequest
+	19, // 26: steward.workflow.v1.WorkflowService.ListUpcomingTasks:input_type -> steward.workflow.v1.ListUpcomingTasksRequest
+	22, // 27: steward.workflow.v1.WorkflowService.ListDecidedApprovals:input_type -> steward.workflow.v1.ListDecidedApprovalsRequest
+	24, // 28: steward.workflow.v1.WorkflowService.SwapAssignee:input_type -> steward.workflow.v1.SwapAssigneeRequest
+	27, // 29: steward.workflow.v1.WorkflowService.BulkDecide:input_type -> steward.workflow.v1.BulkDecideRequest
+	30, // 30: steward.workflow.v1.WorkflowService.GetAssignmentHistory:input_type -> steward.workflow.v1.GetAssignmentHistoryRequest
+	33, // 31: steward.workflow.v1.WorkflowService.GetStageEligiblePool:input_type -> steward.workflow.v1.GetStageEligiblePoolRequest
+	35, // 32: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:input_type -> steward.workflow.v1.ReassignUserWorkflowItemsRequest
+	40, // 33: steward.workflow.v1.WorkflowService.ListWorkflowDefs:input_type -> steward.workflow.v1.ListWorkflowDefsRequest
+	41, // 34: steward.workflow.v1.WorkflowService.GetWorkflowDef:input_type -> steward.workflow.v1.GetWorkflowDefRequest
+	42, // 35: steward.workflow.v1.WorkflowService.CreateWorkflowDef:input_type -> steward.workflow.v1.CreateWorkflowDefRequest
+	43, // 36: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:input_type -> steward.workflow.v1.UpdateWorkflowDefRequest
+	44, // 37: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:input_type -> steward.workflow.v1.ArchiveWorkflowDefRequest
+	45, // 38: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:input_type -> steward.workflow.v1.SetWorkflowVetoEnabledRequest
+	2,  // 39: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
+	5,  // 40: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
+	7,  // 41: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
+	13, // 42: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
+	17, // 43: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
+	20, // 44: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
+	23, // 45: steward.workflow.v1.WorkflowService.ListDecidedApprovals:output_type -> steward.workflow.v1.ListDecidedApprovalsResponse
+	25, // 46: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
+	29, // 47: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
+	32, // 48: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
+	34, // 49: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
+	36, // 50: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
+	46, // 51: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
+	47, // 52: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
+	48, // 53: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
+	49, // 54: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
+	50, // 55: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
+	51, // 56: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:output_type -> steward.workflow.v1.SetWorkflowVetoEnabledResponse
+	3,  // 57: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
+	40, // [40:58] is the sub-list for method output_type
+	22, // [22:40] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_steward_workflow_v1_workflow_proto_init() }
@@ -2581,7 +2780,7 @@ func file_steward_workflow_v1_workflow_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_steward_workflow_v1_workflow_proto_rawDesc), len(file_steward_workflow_v1_workflow_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   32,
+			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -29,6 +29,7 @@ var gatewayMethods = []string{
 	workflowv1.WorkflowService_GetStatus_FullMethodName,
 	workflowv1.WorkflowService_ListPendingTasks_FullMethodName,
 	workflowv1.WorkflowService_ListUpcomingTasks_FullMethodName,
+	workflowv1.WorkflowService_ListDecidedApprovals_FullMethodName,
 	workflowv1.WorkflowService_SwapAssignee_FullMethodName,
 	workflowv1.WorkflowService_BulkDecide_FullMethodName,
 	workflowv1.WorkflowService_GetAssignmentHistory_FullMethodName,

@@ -35,6 +35,12 @@ service WorkflowService {
   // ListUpcomingTasks returns active runs where the approver sits on a stage
   // that hasn't started yet.
   rpc ListUpcomingTasks(ListUpcomingTasksRequest) returns (ListUpcomingTasksResponse);
+  // ListDecidedApprovals returns the runs still in review where the user has
+  // decided a seat of their own, one entry per run, newest decision first. A
+  // run that is published, rejected or withdrawn is left out, and so is a seat
+  // that asked for changes (it stays pending). Ids only: the caller adds the
+  // policy title and checks what the user may read.
+  rpc ListDecidedApprovals(ListDecidedApprovalsRequest) returns (ListDecidedApprovalsResponse);
   // SwapAssignee replaces a pending seat's holder. The initiator role is
   // checked against the caller: an admin, the seat holder delegating their
   // own seat, or the workflow's author. Only an admin may pick someone outside
@@ -235,6 +241,29 @@ message ListUpcomingTasksRequest {
 
 message ListUpcomingTasksResponse {
   repeated UpcomingTask tasks = 1;
+}
+
+// DecidedApproval is a run still in review where the user has decided.
+message DecidedApproval {
+  string policy_version_id = 1;
+  string run_id = 2;
+  // current_stage_idx is the stage the run is on, as GetStatus reports it.
+  int32 current_stage_idx = 3;
+  // stage_count is the number of stages in the run's workflow; 0 when the
+  // definition can no longer be read.
+  int32 stage_count = 4;
+  // decision is "approved" or "rejected": the user's newest decided seat on
+  // the run.
+  string decision = 5;
+  google.protobuf.Timestamp decided_at = 6;
+}
+
+message ListDecidedApprovalsRequest {
+  string user_id = 1;
+}
+
+message ListDecidedApprovalsResponse {
+  repeated DecidedApproval approvals = 1;
 }
 
 // InitiatorRole is why the caller may reassign a seat.
