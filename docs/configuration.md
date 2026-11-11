@@ -26,7 +26,7 @@ value that doesn't parse stops the service with every problem listed; nothing fa
 | `WORKLOAD_ALLOWED_SERVICEACCOUNTS` | required | Comma list of `<namespace>/<serviceaccount>` that may call workflow at all: `steward/steward-gateway` and `steward/steward-identity`. |
 | `WORKLOAD_AUTH` | enabled | `disabled` turns caller authentication off, for local runs only. Nothing else turns it off, and it can't be combined with `WORKLOAD_OIDC_ISSUER`. |
 | `WORKLOAD_TOKEN_FILE` | `/var/run/secrets/steward/token` while authentication is on | Workflow's own projected token (audience `steward`), sent to core and identity on every call and re-read each time. An unreadable file stops the boot. With `WORKLOAD_AUTH=disabled` it is sent only when set, since core or identity may still enforce. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | The OTLP collector for traces and metrics. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | The OTLP collector for traces and metrics. Unset or empty turns tracing off. |
 | `LOG_LEVEL`, `LOG_FORMAT` | go-log's defaults | `trace` to `error`; `console` locally, `json` in every cluster. |
 
 ## Service-to-service authentication

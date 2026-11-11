@@ -37,7 +37,8 @@ type Config struct {
 	RabbitURL       string
 	GRPCPort        string
 	// ProbePort serves /livez and /readyz over plain HTTP.
-	ProbePort    string
+	ProbePort string
+	// OTLPEndpoint is the OpenTelemetry collector; empty turns tracing off.
 	OTLPEndpoint string
 	IdentityAddr string
 	CoreAddr     string
@@ -72,7 +73,7 @@ func Load(getenv func(string) string) (Config, error) {
 		RabbitURL:     getenv("RABBITMQ_URL"),
 		GRPCPort:      or("GRPC_PORT", "9092"),
 		ProbePort:     or("PROBE_PORT", "8080"),
-		OTLPEndpoint:  or("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"),
+		OTLPEndpoint:  getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		IdentityAddr:  or("IDENTITY_GRPC_ADDR", "identity:9090"),
 		CoreAddr:      or("CORE_GRPC_ADDR", "core:9090"),
 		TLS:           TLS{CertFile: getenv("GRPC_TLS_CERT_FILE"), KeyFile: getenv("GRPC_TLS_KEY_FILE"), ClientCAFile: getenv("GRPC_TLS_CLIENT_CA_FILE")},
