@@ -240,6 +240,9 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 		"submitted_by":      req.GetSubmittedBy(),
 		"workflow_def_id":   defID,
 		"workflow_version":  wd.Version,
+		// Pinned at submit: the stage assigner marks veto seats only when the
+		// workflow had opted in then (steward-workflow#26).
+		"veto_enabled": wd.VetoEnabled,
 	}
 	for i, stage := range wd.Stages {
 		pool := eligibility.StagePool(stage, req.GetAncestorCategoryIds())
@@ -626,7 +629,7 @@ func (s *WorkflowServer) supersedeIfRejected(ctx context.Context, run store.Appr
 		}
 		outcome := tally.Resolve(stage, rows)
 		lg.Debug("reject: tallied the stage", log.F("policy_version_id", run.PolicyVersionID),
-			log.F("stage", seat.StageIndex), log.F("outcome", outcome))
+			log.F("stage", seat.StageIndex), log.F("outcome", outcome), log.F("vetoed_by", tally.VetoedBy(rows)))
 		if outcome != tally.DecisionReject {
 			return nil
 		}
@@ -767,7 +770,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			sa := &workflowv1.StageAssignees{}
 			if aerr == nil && len(rows) > 0 {
 				for _, r := range rows {
-					entry := &workflowv1.StageAssignee{UserId: r.UserID, State: r.State, GroupId: r.GroupID}
+					entry := &workflowv1.StageAssignee{UserId: r.UserID, State: r.State, GroupId: r.GroupID, Veto: r.Veto}
 					if r.DecidedComment != nil {
 						entry.Comment = *r.DecidedComment
 					}
@@ -790,7 +793,19 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			stageAssignees = append(stageAssignees, sa)
 		}
 	}
+	vetoedBy := ""
+	if s.assignments != nil {
+		for i := range stageNames {
+			if rows, aerr := s.assignments.ListStageAssignments(ctx, req.GetPolicyVersionId(), i); aerr == nil {
+				if who := tally.VetoedBy(rows); who != "" {
+					vetoedBy = who
+					break
+				}
+			}
+		}
+	}
 	return &workflowv1.GetStatusResponse{
+		VetoedBy:          vetoedBy,
 		RunId:             run.RunID,
 		Status:            statusToProto(run.Status),
 		StageNames:        stageNames,

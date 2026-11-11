@@ -6,6 +6,7 @@ package saga
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	log "github.com/Bugs5382/go-log"
@@ -87,6 +88,7 @@ func (a *StageAssigner) WithLogger(l log.Logger) *StageAssigner {
 
 type seatPlan struct {
 	userID, groupID string
+	veto            bool
 }
 
 // AssignStage creates the stage's seats. It reads the version and the pinned
@@ -133,15 +135,19 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 		}
 	}
 
+	// The marks reach the run only when the workflow had opted in at submit.
+	vetoOn, _ := run.Inputs["veto_enabled"].(bool)
 	var plan []seatPlan
 	for _, uid := range individuals {
-		plan = append(plan, seatPlan{userID: uid})
+		plan = append(plan, seatPlan{userID: uid, veto: vetoOn && slices.Contains(stage.VetoApproverIDs, uid)})
 	}
 	for _, u := range stage.GroupUnits {
 		for _, m := range units[u.GroupID] {
-			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID})
+			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID, veto: vetoOn && slices.Contains(stage.VetoGroupIDs, u.GroupID)})
 		}
 	}
+	lg.Debug("assign_stage: veto marks", log.F("policy_version_id", pvID), log.F("veto_enabled", vetoOn),
+		log.F("veto_seats", countVeto(plan)))
 
 	now := time.Now().UTC()
 	slaDeadline, reminder := a.opts.StageSLA(stage, now)
@@ -152,6 +158,7 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 			StageIndex:      stageIndex,
 			UserID:          p.userID,
 			GroupID:         p.groupID,
+			Veto:            p.veto,
 			AssignedAt:      now,
 			SLADeadlineAt:   slaDeadline,
 			ReminderAt:      reminder,
@@ -242,6 +249,16 @@ func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage buil
 		}
 	}
 	return individuals, filtered, nil
+}
+
+func countVeto(plan []seatPlan) int {
+	n := 0
+	for _, p := range plan {
+		if p.veto {
+			n++
+		}
+	}
+	return n
 }
 
 func countMembers(units map[string][]string) int {

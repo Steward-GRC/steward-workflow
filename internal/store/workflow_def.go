@@ -49,9 +49,9 @@ func (s *WorkflowDefStore) Get(ctx context.Context, id string) (builder.Workflow
 	var wd builder.WorkflowDef
 	var stagesJSON []byte
 	err := s.db.Querier().QueryRow(ctx,
-		`SELECT id, name, description, version, stages_json, published, author_user_id FROM workflow_defs WHERE id = $1`,
+		`SELECT id, name, description, version, stages_json, published, author_user_id, veto_enabled FROM workflow_defs WHERE id = $1`,
 		id,
-	).Scan(&wd.ID, &wd.Name, &wd.Description, &wd.Version, &stagesJSON, &wd.Published, &wd.AuthorUserID)
+	).Scan(&wd.ID, &wd.Name, &wd.Description, &wd.Version, &stagesJSON, &wd.Published, &wd.AuthorUserID, &wd.VetoEnabled)
 	if err != nil {
 		return wd, fmt.Errorf("get workflow_def %q: %w", id, err)
 	}
@@ -64,7 +64,7 @@ func (s *WorkflowDefStore) Get(ctx context.Context, id string) (builder.Workflow
 // List returns the definitions that aren't archived, by name.
 func (s *WorkflowDefStore) List(ctx context.Context) ([]builder.WorkflowDef, error) {
 	rows, err := s.db.Querier().Query(ctx,
-		`SELECT id, name, description, version, stages_json, published, author_user_id
+		`SELECT id, name, description, version, stages_json, published, author_user_id, veto_enabled
 		   FROM workflow_defs
 		  WHERE archived_at IS NULL
 		  ORDER BY name`,
@@ -78,7 +78,7 @@ func (s *WorkflowDefStore) List(ctx context.Context) ([]builder.WorkflowDef, err
 	for rows.Next() {
 		var wd builder.WorkflowDef
 		var stagesJSON []byte
-		if err := rows.Scan(&wd.ID, &wd.Name, &wd.Description, &wd.Version, &stagesJSON, &wd.Published, &wd.AuthorUserID); err != nil {
+		if err := rows.Scan(&wd.ID, &wd.Name, &wd.Description, &wd.Version, &stagesJSON, &wd.Published, &wd.AuthorUserID, &wd.VetoEnabled); err != nil {
 			return nil, fmt.Errorf("scan workflow_def: %w", err)
 		}
 		if err := json.Unmarshal(stagesJSON, &wd.Stages); err != nil {
@@ -177,4 +177,19 @@ func (s *WorkflowDefStore) Publish(ctx context.Context, id string) error {
 		return fmt.Errorf("publish workflow_def %q: %w", id, err)
 	}
 	return nil
+}
+
+// SetVetoEnabled switches a definition's veto opt-in and returns it. It does
+// not bump the version: the opt-in is read when a run is submitted, and the run
+// carries it from then on.
+func (s *WorkflowDefStore) SetVetoEnabled(ctx context.Context, id string, enabled bool) (builder.WorkflowDef, error) {
+	tag, err := s.db.Querier().Exec(ctx,
+		`UPDATE workflow_defs SET veto_enabled = $2, updated_at = now() WHERE id = $1`, id, enabled)
+	if err != nil {
+		return builder.WorkflowDef{}, fmt.Errorf("set veto_enabled on workflow_def %q: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return builder.WorkflowDef{}, fmt.Errorf("set veto_enabled on workflow_def %q: %w", id, pgx.ErrNoRows)
+	}
+	return s.Get(ctx, id)
 }

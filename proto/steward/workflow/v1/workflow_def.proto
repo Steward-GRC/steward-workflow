@@ -42,6 +42,12 @@ message WorkflowStage {
   // category, then the nearest ancestor that has one.
   map<string, ApproverList> approvers_by_category = 8;
   repeated GroupUnit group_units = 9;
+  // Individual approvers whose reject ends the version at once, when the
+  // workflow has veto_enabled. Marks are inert while it is off.
+  repeated string veto_approver_ids = 10;
+  // Group seats marked the same way: every member's seat in the group holds
+  // the veto.
+  repeated string veto_group_ids = 11;
 }
 
 // WorkflowDef is an admin-authored approval workflow. Every update bumps the
@@ -55,6 +61,9 @@ message WorkflowDef {
   // Who created or last edited the definition. They may reassign its runs'
   // approvals as the workflow author.
   string author_user_id = 6;
+  // The workflow's opt-in to veto seats; off by default. Set only through
+  // SetWorkflowVetoEnabled, never by Create or Update.
+  bool veto_enabled = 7;
 }
 
 message ListWorkflowDefsRequest {}
@@ -100,3 +109,15 @@ message ArchiveWorkflowDefRequest {
 }
 
 message ArchiveWorkflowDefResponse {}
+
+// SetWorkflowVetoEnabledRequest switches a workflow's veto opt-in. The actor
+// must be a workflow admin.
+message SetWorkflowVetoEnabledRequest {
+  string id = 1;
+  bool enabled = 2;
+  string actor_user_id = 3;
+}
+
+message SetWorkflowVetoEnabledResponse {
+  WorkflowDef def = 1;
+}

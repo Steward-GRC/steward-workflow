@@ -46,6 +46,12 @@ type Stage struct {
 	// GroupUnits are the groups that approve as a whole. Their members hold
 	// group seats, separate from any individual seat they also hold.
 	GroupUnits []GroupUnit `json:"group_units,omitempty"`
+
+	// VetoApproverIDs marks individual approvers whose reject ends the version
+	// at once. VetoGroupIDs marks group seats the same way. The marks reach a
+	// run only when the workflow has VetoEnabled.
+	VetoApproverIDs []string `json:"veto_approver_ids,omitempty"`
+	VetoGroupIDs    []string `json:"veto_group_ids,omitempty"`
 }
 
 // GroupUnit is a group that approves as a whole: satisfied once
@@ -92,6 +98,9 @@ type WorkflowDef struct {
 	// AuthorUserID created or last edited the definition, and may reassign
 	// its runs' approvals as the workflow author.
 	AuthorUserID string `json:"author_user_id,omitempty"`
+	// VetoEnabled is the workflow's opt-in to veto seats; off by default. It
+	// has its own column and call, so saving stages never changes it.
+	VetoEnabled bool `json:"-"`
 }
 
 var validQuorums = map[Quorum]bool{
