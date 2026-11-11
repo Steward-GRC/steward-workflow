@@ -102,6 +102,9 @@ type AssignmentStore interface {
 	PendingSeats(ctx context.Context, pvID, userID string) ([]store.AssignmentRow, error)
 	ListStageAssignments(ctx context.Context, pvID string, stageIdx int) ([]store.AssignmentRow, error)
 	CurrentStageIndex(ctx context.Context, pvID string) (int, bool, error)
+	// ListStageEntries lists the stages a run has entered; none for a run from
+	// before they were recorded.
+	ListStageEntries(ctx context.Context, runID string) ([]int, error)
 	DecideAssignment(ctx context.Context, in store.DecideAssignmentInput) error
 	// NoteChangesRequested keeps the comment of a request for changes in the
 	// seat's history; the seat stays pending.
@@ -310,6 +313,9 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 		HomeCategoryID:  req.GetCategoryId(),
 		SubmittedBy:     req.GetSubmittedBy(),
 		PolicyID:        req.GetPolicyId(),
+		// Kept so GetStatus can resolve a stage's per-category approvers
+		// before the stage is entered.
+		AncestorCategoryIDs: req.GetAncestorCategoryIds(),
 	}); err != nil {
 		return nil, internalErr(ctx, "track run: %w", err)
 	}
@@ -735,11 +741,44 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			}
 		}
 	}
-	// With nothing pending the run is past its last stage.
-	currentStageIdx := len(stageNames)
+	// The stages the run has entered. A run from before entries were recorded
+	// has none: it is read from its seats, as it was.
+	var entered map[int]bool
+	maxEntered := -1
 	if s.assignments != nil {
-		if idx, pending, cerr := s.assignments.CurrentStageIndex(ctx, req.GetPolicyVersionId()); cerr == nil && pending {
-			currentStageIdx = idx
+		entries, eerr := s.assignments.ListStageEntries(ctx, run.RunID)
+		if eerr != nil {
+			s.log.Ctx(ctx).Warn("status: stage entries unreadable; reading the stages from their seats",
+				log.F("policy_version_id", req.GetPolicyVersionId()), log.F("error", eerr.Error()))
+		}
+		if len(entries) > 0 {
+			entered = make(map[int]bool, len(entries))
+			for _, i := range entries {
+				entered[i] = true
+				maxEntered = max(maxEntered, i)
+			}
+		}
+	}
+	legacy := entered == nil
+	s.log.Ctx(ctx).Debug("status stage entries",
+		log.F("policy_version_id", req.GetPolicyVersionId()), log.F("legacy", legacy), log.F("last_entered", maxEntered))
+
+	var currentStageIdx int
+	switch {
+	case !legacy:
+		// The last stage the run entered, never past the last stage (the
+		// mock's workflowStatus keeps it on the last stage it reached).
+		currentStageIdx = maxEntered
+		if len(stageNames) > 0 {
+			currentStageIdx = min(currentStageIdx, len(stageNames)-1)
+		}
+	default:
+		// With nothing pending the run is past its last stage.
+		currentStageIdx = len(stageNames)
+		if s.assignments != nil {
+			if idx, pending, cerr := s.assignments.CurrentStageIndex(ctx, req.GetPolicyVersionId()); cerr == nil && pending {
+				currentStageIdx = idx
+			}
 		}
 	}
 	var stageAssignees []*workflowv1.StageAssignees
@@ -749,10 +788,14 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 		for i := range stageNames {
 			rows, aerr := s.assignments.ListStageAssignments(ctx, req.GetPolicyVersionId(), i)
 			stage := wd.Stages[i]
+			isEntered := len(rows) > 0
+			if !legacy {
+				isEntered = entered[i]
+			}
 			upl := &workflowv1.StageUnitProgressList{}
 			for _, unit := range stage.GroupUnits {
 				members, state := tally.UnitSeats(unit.GroupID, rows)
-				if len(rows) == 0 {
+				if !isEntered {
 					members = unit.Members
 				} else if len(members) == 0 {
 					// The stage is entered and no member of this unit got a seat
@@ -778,7 +821,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			if aerr == nil {
 				seatRows = rows
 			}
-			sp := stageProgress(stage, seatRows)
+			sp := stageProgress(stage, seatRows, isEntered, len(eligibility.StagePool(stage, run.AncestorCategoryIDs)))
 			stageProgressList = append(stageProgressList, sp)
 			s.log.Ctx(ctx).Debug("status stage progress",
 				log.F("policy_version_id", req.GetPolicyVersionId()), log.F("stage", i),
@@ -786,7 +829,8 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 				log.F("required", sp.GetRequired()), log.F("has_due", sp.GetDueAt() != nil))
 
 			sa := &workflowv1.StageAssignees{}
-			if aerr == nil && len(rows) > 0 {
+			if isEntered {
+				// Entered: only the seats that were made, none when nobody was seated.
 				for _, r := range rows {
 					entry := &workflowv1.StageAssignee{UserId: r.UserID, State: r.State, GroupId: r.GroupID, Veto: r.Veto}
 					if r.DecidedComment != nil {
@@ -799,7 +843,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 				}
 			} else if haveDef {
 				// Not entered yet, so no seats: show who will approve.
-				for _, uid := range stage.ApproverIDs {
+				for _, uid := range eligibility.StagePool(stage, run.AncestorCategoryIDs) {
 					sa.Assignees = append(sa.Assignees, &workflowv1.StageAssignee{UserId: uid, State: "pending"})
 				}
 				for _, unit := range stage.GroupUnits {

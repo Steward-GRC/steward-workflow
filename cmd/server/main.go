@@ -143,6 +143,7 @@ func run(ctx context.Context, logger log.Logger) error {
 	assigner := saga.NewStageAssigner(defStore, assignments, compileOpts).
 		WithAccessFilter(access.NewResolver(directory, access.NewCoreAdapter(corePolicies, coreCategories))).
 		WithApprovalNotifier(saga.NewApprovalEmitter(jobsPub)).
+		WithStageEntries(assignments).
 		WithLogger(logger)
 	policyClient := worker.NewCorePolicyClient(worker.CorePolicyClientOpts{
 		Core:     corePolicies,

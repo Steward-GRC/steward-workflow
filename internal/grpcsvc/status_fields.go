@@ -36,11 +36,12 @@ func stageRequired(stage builder.Stage, pool int) int {
 }
 
 // stageProgress builds one stage's due date, rule and individual approval
-// count. rows are the stage's seats; with none the stage is not entered yet, so
-// it has no due date (the deadline is fixed when the seats are made) and its
-// pool is the configured individual approvers. Group seats are not counted
-// here: StageUnitProgress carries each group's own tally.
-func stageProgress(stage builder.Stage, rows []store.AssignmentRow) *workflowv1.StageProgress {
+// count. rows are the stage's seats. A stage not yet entered has no due date
+// (the deadline is fixed when the seats are made) and its pool is
+// unenteredPool, the individual approvers the run's categories resolve; an
+// entered stage counts the seats made, none when nobody was seated. Group seats
+// are not counted here: StageUnitProgress carries each group's own tally.
+func stageProgress(stage builder.Stage, rows []store.AssignmentRow, entered bool, unenteredPool int) *workflowv1.StageProgress {
 	out := &workflowv1.StageProgress{Quorum: stageRuleName(stage.Quorum)}
 	if stage.Quorum == builder.QuorumNofM {
 		out.QuorumN = toInt32(stage.QuorumN)
@@ -61,8 +62,8 @@ func stageProgress(stage builder.Stage, rows []store.AssignmentRow) *workflowv1.
 			approvals++
 		}
 	}
-	if len(rows) == 0 {
-		pool = len(stage.ApproverIDs)
+	if !entered {
+		pool = unenteredPool
 	}
 	out.Approvals = toInt32(approvals)
 	out.Required = toInt32(stageRequired(stage, pool))
