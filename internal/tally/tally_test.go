@@ -56,26 +56,89 @@ func TestResolve_GroupUnitMatrix(t *testing.T) {
 	}
 }
 
-// An individual seat plus a group under QuorumAny: one satisfied group
-// approves the stage, and an individual rejection is a lost vote.
-func TestResolve_StageQuorumOverUnits(t *testing.T) {
+// A mixed stage follows the mock server (#42): the individual seats are scored
+// against the stage quorum on their own, and every group unit must be met on
+// its own quorum. A satisfied group never stands in for the individual seats.
+func TestResolve_MixedStage_GroupMetWaitsForTheIndividualSeat(t *testing.T) {
+	// Mock: "satisfies a group once enough members approve, and the run waits
+	// for the other group and the user".
 	stage := unitStage(builder.QuorumAny, gu("g", builder.QuorumAll, "a", "b"))
 	group := seatsOf("g", map[string]string{"a": "approved", "b": "approved"})
+	rows := append(group, store.AssignmentRow{UserID: "ind", State: "pending"})
+	if got := Resolve(stage, rows); got != DecisionPending {
+		t.Fatalf("got %q want pending: the individual seat still has to meet the quorum", got)
+	}
+	rows[len(rows)-1].State = "approved"
+	if got := Resolve(stage, rows); got != DecisionApprove {
+		t.Fatalf("got %q want approve: individual quorum met and the group satisfied", got)
+	}
+}
 
-	pending := append(group, store.AssignmentRow{UserID: "ind", State: "pending"})
-	if got := Resolve(stage, pending); got != DecisionApprove {
-		t.Fatalf("got %q want approve (one group satisfied under any)", got)
+func TestResolve_MixedStage_IndividualsMetWaitForEveryGroup(t *testing.T) {
+	stage := unitStage(builder.QuorumAny,
+		gu("g1", builder.QuorumAny, "a"), gu("g2", builder.QuorumAny, "b"))
+	rows := append(seatsOf("g1", map[string]string{"a": "approved"}),
+		append(seatsOf("g2", map[string]string{"b": "pending"}),
+			store.AssignmentRow{UserID: "ind", State: "approved"})...)
+	if got := Resolve(stage, rows); got != DecisionPending {
+		t.Fatalf("got %q want pending: group g2 has not voted", got)
 	}
-	// An individual rejection is a lost vote, not the end of the stage: the
-	// satisfied group already meets the quorum of one.
-	rejected := append(seatsOf("g", map[string]string{"a": "approved", "b": "approved"}), store.AssignmentRow{UserID: "ind", State: "rejected"})
-	if got := Resolve(stage, rejected); got != DecisionApprove {
-		t.Fatalf("got %q want approve (group satisfied, individual seat rejected is one lost vote)", got)
+	rows[1] = store.AssignmentRow{UserID: "b", GroupID: "g2", State: "approved"}
+	if got := Resolve(stage, rows); got != DecisionApprove {
+		t.Fatalf("got %q want approve: every group met", got)
 	}
-	// With the group still open, the same rejection leaves the quorum reachable.
-	open := append(seatsOf("g", map[string]string{"a": "pending", "b": "pending"}), store.AssignmentRow{UserID: "ind", State: "rejected"})
-	if got := Resolve(stage, open); got != DecisionPending {
-		t.Fatalf("got %q want pending (the group can still satisfy the quorum of one)", got)
+}
+
+// Mock: "reports a half-voted group and a group nobody has voted in".
+func TestResolve_MixedStage_HalfVotedAndUntouchedGroupsStayPending(t *testing.T) {
+	stage := unitStage(builder.QuorumAll,
+		gu("half", builder.QuorumAll, "a", "b"), gu("none", builder.QuorumAny, "c"))
+	rows := append(seatsOf("half", map[string]string{"a": "approved", "b": "pending"}),
+		append(seatsOf("none", map[string]string{"c": "pending"}),
+			store.AssignmentRow{UserID: "ind", State: "approved"})...)
+	if got := Resolve(stage, rows); got != DecisionPending {
+		t.Fatalf("got %q want pending", got)
+	}
+}
+
+// The individual seats use the stage quorum over themselves only: a majority
+// of three individuals ignores how many group units sit beside them.
+func TestResolve_MixedStage_QuorumCountsIndividualSeatsOnly(t *testing.T) {
+	stage := unitStage(builder.QuorumMajority, gu("g", builder.QuorumAny, "m"))
+	group := seatsOf("g", map[string]string{"m": "approved"})
+	two := append(group, seatRows("approved", "approved", "pending")...)
+	if got := Resolve(stage, two); got != DecisionApprove {
+		t.Fatalf("got %q want approve: 2 of 3 individuals plus the group", got)
+	}
+	one := append(seatsOf("g", map[string]string{"m": "approved"}), seatRows("approved", "pending", "pending")...)
+	if got := Resolve(stage, one); got != DecisionPending {
+		t.Fatalf("got %q want pending: 1 of 3 individuals is not a majority", got)
+	}
+}
+
+// Mock rejectIfQuorum: the stage ends when the individual seats cannot reach
+// the quorum, or when any group cannot reach its own.
+func TestResolve_MixedStage_RejectArithmetic(t *testing.T) {
+	stage := unitStage(builder.QuorumMajority, gu("g", builder.QuorumAny, "m"))
+	open := func() []store.AssignmentRow { return seatsOf("g", map[string]string{"m": "pending"}) }
+
+	// majority of three individuals, one rejects: two approvals still possible.
+	if got := Resolve(stage, append(open(), seatRows("rejected", "pending", "pending")...)); got != DecisionPending {
+		t.Fatalf("one of three rejected: got %q want pending", got)
+	}
+	// two of three reject: the individual quorum is out of reach, the open group does not save it.
+	if got := Resolve(stage, append(open(), seatRows("rejected", "rejected", "pending")...)); got != DecisionReject {
+		t.Fatalf("two of three rejected: got %q want reject", got)
+	}
+	// majority of two individuals, one rejects: out of reach even with a satisfied group.
+	sat := seatsOf("g", map[string]string{"m": "approved"})
+	if got := Resolve(stage, append(sat, seatRows("rejected", "pending")...)); got != DecisionReject {
+		t.Fatalf("majority of two, one rejected: got %q want reject", got)
+	}
+	// a group that cannot reach its own quorum ends the stage whatever the individuals did.
+	dead := seatsOf("g", map[string]string{"m": "rejected"})
+	if got := Resolve(stage, append(dead, seatRows("approved", "approved", "approved")...)); got != DecisionReject {
+		t.Fatalf("group out of reach: got %q want reject", got)
 	}
 }
 
@@ -193,8 +256,8 @@ func TestResolve_RejectIsAVote(t *testing.T) {
 	}
 }
 
-// With group units on the stage an individual rejection is still just a lost
-// vote in the combined pool of individual seats and units.
+// With group units on the stage an individual rejection is still a lost vote,
+// counted among the individual seats only.
 func TestResolve_RejectIsAVote_WithGroupUnits(t *testing.T) {
 	// all of: one individual and one group; the individual rejects: out of reach.
 	allStage := unitStage(builder.QuorumAll, gu("g", builder.QuorumAny, "m"))
@@ -202,12 +265,11 @@ func TestResolve_RejectIsAVote_WithGroupUnits(t *testing.T) {
 	if got := Resolve(allStage, rows); got != DecisionReject {
 		t.Fatalf("all over ind+group, ind rejected: got %q want reject", got)
 	}
-	// majority of three votes (two individuals, one group): one individual
-	// rejects, two approvals are still possible.
+	// majority of three individuals: one rejects, two approvals are still possible.
 	majStage := unitStage(builder.QuorumMajority, gu("g", builder.QuorumAny, "m"))
-	rows = append([]store.AssignmentRow{{UserID: "i1", State: "rejected"}, {UserID: "i2", State: "pending"}},
+	rows = append([]store.AssignmentRow{{UserID: "i1", State: "rejected"}, {UserID: "i2", State: "pending"}, {UserID: "i3", State: "pending"}},
 		seatsOf("g", map[string]string{"m": "pending"})...)
 	if got := Resolve(majStage, rows); got != DecisionPending {
-		t.Fatalf("majority of three votes, one lost: got %q want pending", got)
+		t.Fatalf("majority of three individuals, one lost: got %q want pending", got)
 	}
 }
