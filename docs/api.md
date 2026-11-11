@@ -11,7 +11,7 @@ A run gives every approver of the stage it is on a seat. There are two kinds:
 - an **individual seat** is one person's own vote;
 - a **group seat** is a member's vote inside an approve-as-group unit (`GroupUnit`). The unit
   decides by its own quorum of yes votes over its members' group seats (`internal_quorum`:
-  `one`, `majority` or `all`) and then counts as one vote in the stage's quorum.
+  `one`, `majority` or `all`). The stage quorum does not count groups; see below.
 
 A person who is an individual approver and a member of a group on the same stage holds both seats
 and votes each separately. An individual approval never counts toward a group's quorum.
@@ -21,8 +21,11 @@ reach, and the stage ends rejected only when the approvals still possible can no
 stage quorum (`any`, `majority`, `all` or n-of): a majority of three survives one rejection, a
 majority of two or a stage with a single seat does not. The stage's other seats keep their tasks
 until it ends. A rejection on a group seat rejects the stage only once the group can no longer
-reach its own quorum. On a stage that mixes individual seats and groups, each individual seat and
-each group unit is one vote in the stage quorum.
+reach its own quorum. On a stage that mixes individual seats and groups, the individual seats are
+scored against the stage quorum on their own, and every group unit must also be met on its own
+quorum, as the mock server does. The stage ends rejected when the individual seats can no longer
+reach the stage quorum or when any group can no longer reach its own. A met group never stands in
+for an individual seat, and a met quorum of individual seats never stands in for a group.
 
 The `group_id` fields on `SignalRequest`, `Decision`, `SwapAssigneeRequest`,
 `GetStageEligiblePoolRequest` and `StageAssignee` name the seat; empty means the individual seat.
@@ -56,7 +59,7 @@ A `WorkflowDef` is an ordered list of `WorkflowStage`s. A stage's approvers are,
 3. `group_units`: the groups that approve as a whole, each with its members.
 
 `quorum` is the stage's own: `one`, `majority` (more than half) or `all`, counted over its
-individual seats plus one vote per group. A stage left without any approver can be saved as a draft
+individual seats only; every group unit must be met on its own quorum as well. A stage left without any approver can be saved as a draft
 but can't be submitted (6003). `sla_days` sets the stage's deadline (zero uses the service-wide
 SLA); `reject_on_sla_breach` rejects instead of escalating when it passes.
 
