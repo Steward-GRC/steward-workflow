@@ -744,6 +744,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 	}
 	var stageAssignees []*workflowv1.StageAssignees
 	var stageUnitProgress []*workflowv1.StageUnitProgressList
+	var stageProgressList []*workflowv1.StageProgress
 	if s.assignments != nil {
 		for i := range stageNames {
 			rows, aerr := s.assignments.ListStageAssignments(ctx, req.GetPolicyVersionId(), i)
@@ -753,6 +754,13 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 				members, state := tally.UnitSeats(unit.GroupID, rows)
 				if len(rows) == 0 {
 					members = unit.Members
+				} else if len(members) == 0 {
+					// The stage is entered and no member of this unit got a seat
+					// (none could read the policy): the unit takes no part, as in
+					// the mock's workflowStatus.
+					s.log.Ctx(ctx).Debug("status leaves out a unit with no seated member",
+						log.F("policy_version_id", req.GetPolicyVersionId()), log.F("stage", i), log.F("group_id", unit.GroupID))
+					continue
 				}
 				t := builder.TallyUnit(members, string(unit.InternalQuorum), state)
 				upl.Units = append(upl.Units, &workflowv1.StageUnitProgress{
@@ -766,6 +774,16 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 				})
 			}
 			stageUnitProgress = append(stageUnitProgress, upl)
+			var seatRows []store.AssignmentRow
+			if aerr == nil {
+				seatRows = rows
+			}
+			sp := stageProgress(stage, seatRows)
+			stageProgressList = append(stageProgressList, sp)
+			s.log.Ctx(ctx).Debug("status stage progress",
+				log.F("policy_version_id", req.GetPolicyVersionId()), log.F("stage", i),
+				log.F("rule", sp.GetQuorum()), log.F("approvals", sp.GetApprovals()),
+				log.F("required", sp.GetRequired()), log.F("has_due", sp.GetDueAt() != nil))
 
 			sa := &workflowv1.StageAssignees{}
 			if aerr == nil && len(rows) > 0 {
@@ -812,6 +830,9 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 		CurrentStageIdx:   toInt32(currentStageIdx),
 		StageAssignees:    stageAssignees,
 		StageUnitProgress: stageUnitProgress,
+		SubmittedBy:       run.SubmittedBy,
+		SubmittedAt:       timestamppb.New(run.StartedAt),
+		StageProgress:     stageProgressList,
 	}, nil
 }
 

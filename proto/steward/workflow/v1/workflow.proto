@@ -182,6 +182,29 @@ message GetStatusResponse {
   // The user whose reject from a veto seat ended the run; empty when the run
   // was not ended by a veto.
   string vetoed_by = 7;
+  // The effective submitter of the run (during act-as, the account acted as).
+  string submitted_by = 8;
+  // When the run was submitted.
+  google.protobuf.Timestamp submitted_at = 9;
+  // Index-aligned with stage_names: each stage's due date and rule.
+  repeated StageProgress stage_progress = 10;
+}
+
+// One stage's due date and approval rule, with the individual approvals it has
+// and needs. Approve-as-group units keep their own tally in StageUnitProgress.
+message StageProgress {
+  // When the stage is due. Unset until the stage is entered, as the due date
+  // is fixed from the day its seats are made.
+  google.protobuf.Timestamp due_at = 1;
+  // "one", "majority", "all" or "nofm".
+  string quorum = 2;
+  // The approvals an "nofm" stage needs; zero on every other rule.
+  int32 quorum_n = 3;
+  // Individual approvals the stage has.
+  int32 approvals = 4;
+  // Individual approvals the stage needs under its rule. For a stage not yet
+  // entered the pool is its configured approvers.
+  int32 required = 5;
 }
 
 message PendingTask {
