@@ -80,18 +80,22 @@ type ApprovalRun struct {
 	// otherwise. TrackRun reads it from the context.
 	SubmittedByActorID string
 	PolicyID           string
+	// AncestorCategoryIDs is the policy's category lineage at submit, home
+	// first, so GetStatus can resolve a stage's per-category approvers for a
+	// stage not yet entered.
+	AncestorCategoryIDs []string
 }
 
 // activeRunStatuses are the statuses that hold a version's one active slot.
 const activeRunStatuses = `('in_review', 'scheduled')`
 
 const runColumns = `policy_version_id, run_id, workflow_def_id, workflow_version, status, started_at, resolved_at,
-	COALESCE(home_category_id, ''), COALESCE(submitted_by, ''), COALESCE(submitted_by_actor_id, ''), COALESCE(policy_id, '')`
+	COALESCE(home_category_id, ''), COALESCE(submitted_by, ''), COALESCE(submitted_by_actor_id, ''), COALESCE(policy_id, ''), ancestor_category_ids`
 
 func scanRun(row pgx.Row) (ApprovalRun, error) {
 	var r ApprovalRun
 	err := row.Scan(&r.PolicyVersionID, &r.RunID, &r.WorkflowDefID, &r.WorkflowVersion, &r.Status, &r.StartedAt, &r.ResolvedAt,
-		&r.HomeCategoryID, &r.SubmittedBy, &r.SubmittedByActorID, &r.PolicyID)
+		&r.HomeCategoryID, &r.SubmittedBy, &r.SubmittedByActorID, &r.PolicyID, &r.AncestorCategoryIDs)
 	return r, err
 }
 
@@ -106,12 +110,17 @@ func (s *AssignmentStore) TrackRun(ctx context.Context, r ApprovalRun) error {
 	if admin, ok := ActingAdmin(ctx); ok {
 		actor = admin
 	}
+	ancestors := r.AncestorCategoryIDs
+	if ancestors == nil {
+		ancestors = []string{}
+	}
 	_, err := s.db.Querier().Exec(ctx,
 		`INSERT INTO approval_runs (policy_version_id, run_id, workflow_def_id, workflow_version, status,
-		                            home_category_id, submitted_by, submitted_by_actor_id, policy_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		                            home_category_id, submitted_by, submitted_by_actor_id, policy_id,
+		                            ancestor_category_ids)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		r.PolicyVersionID, r.RunID, r.WorkflowDefID, r.WorkflowVersion, status,
-		nullableText(r.HomeCategoryID), nullableText(r.SubmittedBy), actor, nullableText(r.PolicyID),
+		nullableText(r.HomeCategoryID), nullableText(r.SubmittedBy), actor, nullableText(r.PolicyID), ancestors,
 	)
 	if err != nil {
 		return fmt.Errorf("track run %q: %w", r.RunID, err)

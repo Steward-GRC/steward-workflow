@@ -22,6 +22,11 @@ type assignmentCreator interface {
 	CreateAssignment(ctx context.Context, row store.AssignmentRow, actorUserID string) (store.AssignmentRow, error)
 }
 
+// stageEntryRecorder notes that a run entered a stage; it must be idempotent.
+type stageEntryRecorder interface {
+	RecordStageEntry(ctx context.Context, runID string, stageIdx int, at time.Time) error
+}
+
 // approverFilter drops the people who can't read the policy and supplies its
 // category's owners as the backstop.
 type approverFilter interface {
@@ -60,6 +65,7 @@ type StageAssigner struct {
 	opts     builder.CompileOptions
 	filter   approverFilter
 	notifier approvalNotifier
+	entries  stageEntryRecorder
 	log      log.Logger
 }
 
@@ -77,6 +83,13 @@ func (a *StageAssigner) WithAccessFilter(f approverFilter) *StageAssigner {
 // WithApprovalNotifier turns on the approval-requested events.
 func (a *StageAssigner) WithApprovalNotifier(n approvalNotifier) *StageAssigner {
 	a.notifier = n
+	return a
+}
+
+// WithStageEntries records every stage the saga enters, seated or not, so
+// GetStatus can tell a stage waiting on nobody from one not reached yet.
+func (a *StageAssigner) WithStageEntries(r stageEntryRecorder) *StageAssigner {
+	a.entries = r
 	return a
 }
 
@@ -113,6 +126,15 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 		return fmt.Errorf("assign stage %d: out of range (def has %d stages)", stageIndex, len(wd.Stages))
 	}
 	stage := wd.Stages[stageIndex]
+
+	// Before any early return: a stage with nobody to seat is still entered.
+	if a.entries != nil {
+		if err := a.entries.RecordStageEntry(ctx, run.ID.String(), stageIndex, time.Now().UTC()); err != nil {
+			lg.Error(err, "assign_stage: record stage entry failed", log.F("policy_version_id", pvID))
+			return fmt.Errorf("assign stage %d: %w", stageIndex, err)
+		}
+		lg.Debug("assign_stage: stage entry recorded", log.F("policy_version_id", pvID))
+	}
 
 	individuals := poolFromInputs(run.Inputs, stageIndex)
 	units := make(map[string][]string, len(stage.GroupUnits))

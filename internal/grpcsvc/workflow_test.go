@@ -238,6 +238,25 @@ type stubAssignments struct {
 	// strictSeats stops PendingSeats from synthesizing a seat for a user who
 	// has none, so a test can see a refused decision.
 	strictSeats bool
+	// entries are the stages each run (by run id) has entered.
+	entries map[string][]int
+}
+
+func (s *stubAssignments) ListStageEntries(_ context.Context, runID string) ([]int, error) {
+	return s.entries[runID], nil
+}
+
+// setSeat writes a seat for the user on the stage in the given state.
+func (s *stubAssignments) setSeat(pv string, stage int, user, state string) error {
+	if _, err := s.CreateAssignment(context.Background(),
+		store.AssignmentRow{PolicyVersionID: pv, StageIndex: stage, UserID: user}, "sys"); err != nil {
+		return err
+	}
+	k := seatKey(pv, stage, user, "")
+	row := s.rows[k]
+	row.State = state
+	s.rows[k] = row
+	return nil
 }
 
 // PendingSeats returns the user's pending seats, individual first,

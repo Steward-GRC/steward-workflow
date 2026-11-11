@@ -208,6 +208,40 @@ func (a *Assignments) CurrentStageIndex(ctx context.Context, pvID string) (int, 
 	return *idx, true, nil
 }
 
+// RecordStageEntry notes that the run entered the stage. It is idempotent: a
+// stage entered again (a retry, the request-changes loop) keeps its first
+// entry time.
+func (a *Assignments) RecordStageEntry(ctx context.Context, runID string, stageIdx int, at time.Time) error {
+	if _, err := a.db.Querier().Exec(ctx,
+		`INSERT INTO approval_stage_entries (run_id, stage_index, entered_at) VALUES ($1, $2, $3)
+		 ON CONFLICT (run_id, stage_index) DO NOTHING`,
+		runID, stageIdx, at,
+	); err != nil {
+		return fmt.Errorf("record entry of stage %d for run %q: %w", stageIdx, runID, err)
+	}
+	return nil
+}
+
+// ListStageEntries returns the stages the run has entered, lowest first. A run
+// from before the entries were recorded has none.
+func (a *Assignments) ListStageEntries(ctx context.Context, runID string) ([]int, error) {
+	rows, err := a.db.Querier().Query(ctx,
+		`SELECT stage_index FROM approval_stage_entries WHERE run_id=$1 ORDER BY stage_index`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("list stage entries of run %q: %w", runID, err)
+	}
+	defer rows.Close()
+	var out []int
+	for rows.Next() {
+		var idx int
+		if err := rows.Scan(&idx); err != nil {
+			return nil, fmt.Errorf("scan stage entry of run %q: %w", runID, err)
+		}
+		out = append(out, idx)
+	}
+	return out, rows.Err()
+}
+
 // HasPendingAssignment reports whether the user holds any pending seat on the
 // stage.
 func (a *Assignments) HasPendingAssignment(ctx context.Context, pvID string, stageIdx int, userID string) (bool, error) {
