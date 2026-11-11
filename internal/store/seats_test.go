@@ -96,3 +96,38 @@ func TestSeats_MergeKeepsAGroupSeatBesideTheTargetsIndividualSeat(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, "pending", got.State)
 }
+
+// Requesting changes keeps the seat open and the comment goes into the seat's
+// history (#39).
+func TestSeats_NoteChangesRequestedKeepsTheSeatPending(t *testing.T) {
+	a := store.NewAssignments(newTestDB(t))
+	ctx := context.Background()
+	row := seat(t, a, "pv-rc", "user-carol", "")
+
+	require.NoError(t, a.NoteChangesRequested(ctx, row.ID, "user-carol", "See my comments."))
+
+	got, err := a.GetAssignment(ctx, "pv-rc", 0, "user-carol", "")
+	require.NoError(t, err)
+	require.Equal(t, "pending", got.State)
+	require.Nil(t, got.DecidedAt)
+	require.Nil(t, got.DecidedComment)
+
+	history, err := a.ListHistory(ctx, "pv-rc", 0)
+	require.NoError(t, err)
+	var kept bool
+	for _, h := range history {
+		if h.Event == "changes_requested" {
+			kept = true
+			require.Equal(t, "See my comments.", h.Reason)
+			require.Equal(t, "user-carol", h.ActorUserID)
+		}
+	}
+	require.True(t, kept, "history: %+v", history)
+
+	// The seat can still be decided afterwards.
+	require.NoError(t, a.DecideAssignment(ctx, store.DecideAssignmentInput{
+		AssignmentID: row.ID, Decision: "approved", Comment: "Fine now.", ActorUserID: "user-carol",
+	}))
+	// A decided seat refuses further comments.
+	require.ErrorIs(t, a.NoteChangesRequested(ctx, row.ID, "user-carol", "late"), store.ErrSeatNotPending)
+}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	log "github.com/Bugs5382/go-log"
@@ -102,6 +103,9 @@ type AssignmentStore interface {
 	ListStageAssignments(ctx context.Context, pvID string, stageIdx int) ([]store.AssignmentRow, error)
 	CurrentStageIndex(ctx context.Context, pvID string) (int, bool, error)
 	DecideAssignment(ctx context.Context, in store.DecideAssignmentInput) error
+	// NoteChangesRequested keeps the comment of a request for changes in the
+	// seat's history; the seat stays pending.
+	NoteChangesRequested(ctx context.Context, assignmentID, actorUserID, comment string) error
 	SupersedePendingPeers(ctx context.Context, pvID string, stageIdx int, excludeAssignmentID string, actorUserID string) (int64, error)
 	TerminatePendingAssignments(ctx context.Context, pvID, state, actorUserID, reason string) (int64, error)
 	Swap(ctx context.Context, in store.SwapInput) (store.AssignmentRow, error)
@@ -310,24 +314,54 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 	return &workflowv1.SubmitResponse{RunId: runID}, nil
 }
 
+// endedRunStatuses are the run statuses that take no more decisions.
+var endedRunStatuses = map[string]bool{
+	"approved": true, "rejected": true, "withdrawn": true, "superseded": true,
+	"published": true, "archived": true, "aborted": true, "failed": true,
+}
+
 // Signal records a decision and unpauses the run. Approve and reject need a
-// comment. A decision always applies to the version's current run, whatever
-// run_id the caller holds.
+// comment that is not blank; a rejection is one vote against and only ends the
+// stage when the approvals still possible cannot reach its quorum. Request
+// changes keeps the seat open and changes no status. A decision always applies
+// to the version's current run, whatever run_id the caller holds, and a run
+// that has ended takes none.
 func (s *WorkflowServer) Signal(ctx context.Context, req *workflowv1.SignalRequest) (*workflowv1.SignalResponse, error) {
 	name := signalName(req.GetSignal())
+	lg := s.log.Ctx(ctx).With(log.F("signal", name), log.F("actor_user_id", req.GetActorUserId()))
+	lg.Debug("signal: enter", log.F("run_id", req.GetRunId()), log.F("policy_version_id", req.GetPolicyVersionId()))
 	run, err := s.resolveCurrentRun(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+	switch name {
+	case "approve", "reject", "request_changes", "withdraw":
+		if endedRunStatuses[run.Status] {
+			lg.Info("signal refused: the run has ended", log.F("run_id", run.RunID), log.F("run_status", run.Status))
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"this approval is no longer active; refresh your inbox (run is %s)", run.Status)
+		}
+	}
 
 	if name == "approve" || name == "reject" {
-		if req.GetComment() == "" {
+		if strings.TrimSpace(req.GetComment()) == "" {
 			return nil, status.Error(codes.InvalidArgument, "comment is required for approve/reject")
 		}
 		// Durable before the saga moves: resolve_decision reads it back.
 		if err := s.recordDecision(ctx, req, name, run); err != nil {
 			return nil, err
 		}
+	}
+	if name == "request_changes" {
+		// Sending comments back is not a vote: the seat stays open, no status
+		// changes and the stage is untouched, so the saga is left waiting.
+		if err := s.recordRequestChanges(ctx, req, run); err != nil {
+			return nil, err
+		}
+		s.auditEmit.EmitActorAttrs(ctx, "workflow.signal.request_changes", "policy_version:"+run.PolicyVersionID,
+			req.GetActorUserId(), run.HomeCategoryID, map[string]string{"run_id": run.RunID, "signal": name})
+		lg.Debug("signal: changes requested, seat left open", log.F("run_id", run.RunID))
+		return &workflowv1.SignalResponse{}, nil
 	}
 	if name == "withdraw" {
 		if err := s.recordWithdraw(ctx, run, req.GetActorUserId()); err != nil {
@@ -519,9 +553,9 @@ func pickSeat(seats []store.AssignmentRow, groupID string) (store.AssignmentRow,
 
 var errAmbiguousSeat = errors.New("the caller holds seats in several groups")
 
-// recordDecision records the decision on the caller's seat. An individual
-// rejection, or a group rejection that leaves the group short of its quorum,
-// rejects the stage and supersedes its other pending seats.
+// recordDecision records the decision on the caller's seat. A rejection is a
+// vote: it rejects the stage and supersedes its other pending seats only once
+// the approvals still possible cannot reach the stage's quorum.
 func (s *WorkflowServer) recordDecision(ctx context.Context, req *workflowv1.SignalRequest, name string, run store.ApprovalRun) error {
 	if s.assignments == nil {
 		return status.Error(codes.Unimplemented, "assignment store not wired")
@@ -529,20 +563,9 @@ func (s *WorkflowServer) recordDecision(ctx context.Context, req *workflowv1.Sig
 	if req.GetActorUserId() == "" {
 		return status.Error(codes.InvalidArgument, "actor_user_id is required to record a decision")
 	}
-	seats, err := s.assignments.PendingSeats(ctx, run.PolicyVersionID, req.GetActorUserId())
+	seat, err := s.pendingSeatFor(ctx, req, run)
 	if err != nil {
-		return internalErr(ctx, "pending seats: %w", err)
-	}
-	seat, err := pickSeat(seats, req.GetGroupId())
-	if errors.Is(err, errAmbiguousSeat) {
-		return status.Error(codes.InvalidArgument, "group_id is required: you hold seats in several groups on this stage")
-	}
-	if err != nil {
-		s.log.Ctx(ctx).Info("record decision: no pending seat", log.F("actor_user_id", req.GetActorUserId()),
-			log.F("policy_version_id", run.PolicyVersionID), log.F("group_id", req.GetGroupId()))
-		return status.Errorf(codes.FailedPrecondition,
-			"this approval is no longer active; refresh your inbox (no pending assignment for actor %q on policy_version %q)",
-			req.GetActorUserId(), run.PolicyVersionID)
+		return err
 	}
 	decision := "approved"
 	if name == "reject" {
@@ -567,26 +590,76 @@ func (s *WorkflowServer) recordDecision(ctx context.Context, req *workflowv1.Sig
 	return nil
 }
 
-// supersedeIfRejected supersedes the stage's other pending seats when a
-// rejection rejects the stage: always for an individual seat, and for a group
-// seat once the group can't reach its quorum.
+// supersedeIfRejected supersedes the stage's other pending seats once a
+// rejection has ended the stage. A rejection is a vote: while the approvals
+// still possible can reach the quorum the other seats stay open. When the
+// stage can't be read, the rejection ends it, as stageRejected reports.
 func (s *WorkflowServer) supersedeIfRejected(ctx context.Context, run store.ApprovalRun, seat store.AssignmentRow, actor string) error {
-	if seat.GroupID != "" {
-		stage, ok := s.pinnedStage(ctx, run, seat.StageIndex)
-		if ok {
-			rows, err := s.assignments.ListStageAssignments(ctx, run.PolicyVersionID, seat.StageIndex)
-			if err != nil {
-				return internalErr(ctx, "list stage assignments: %w", err)
-			}
-			if tally.Resolve(stage, rows) != tally.DecisionReject {
-				return nil
-			}
+	lg := s.log.Ctx(ctx)
+	stage, ok := s.pinnedStage(ctx, run, seat.StageIndex)
+	if ok {
+		rows, err := s.assignments.ListStageAssignments(ctx, run.PolicyVersionID, seat.StageIndex)
+		if err != nil {
+			return internalErr(ctx, "list stage assignments: %w", err)
+		}
+		outcome := tally.Resolve(stage, rows)
+		lg.Debug("reject: tallied the stage", log.F("policy_version_id", run.PolicyVersionID),
+			log.F("stage", seat.StageIndex), log.F("outcome", outcome))
+		if outcome != tally.DecisionReject {
+			return nil
 		}
 	}
-	if _, err := s.assignments.SupersedePendingPeers(ctx, run.PolicyVersionID, seat.StageIndex, seat.ID, actor); err != nil {
+	n, err := s.assignments.SupersedePendingPeers(ctx, run.PolicyVersionID, seat.StageIndex, seat.ID, actor)
+	if err != nil {
 		return internalErr(ctx, "supersede pending peers: %w", err)
 	}
+	lg.Info("reject: stage ended, other seats superseded", log.F("policy_version_id", run.PolicyVersionID),
+		log.F("stage", seat.StageIndex), log.F("superseded", n))
 	return nil
+}
+
+// recordRequestChanges keeps the comment of a request for changes in the
+// history of the caller's pending seat. It records no decision and leaves the
+// seat pending; a caller with no pending seat is refused like a decision is.
+func (s *WorkflowServer) recordRequestChanges(ctx context.Context, req *workflowv1.SignalRequest, run store.ApprovalRun) error {
+	if s.assignments == nil {
+		return status.Error(codes.Unimplemented, "assignment store not wired")
+	}
+	if req.GetActorUserId() == "" {
+		return status.Error(codes.InvalidArgument, "actor_user_id is required to request changes")
+	}
+	seat, err := s.pendingSeatFor(ctx, req, run)
+	if err != nil {
+		return err
+	}
+	if err := s.assignments.NoteChangesRequested(ctx, seat.ID, req.GetActorUserId(), req.GetComment()); err != nil {
+		if errors.Is(err, store.ErrSeatNotPending) {
+			return status.Errorf(codes.FailedPrecondition, "this approval is no longer active; refresh your inbox")
+		}
+		return internalErr(ctx, "record request for changes: %w", err)
+	}
+	return nil
+}
+
+// pendingSeatFor finds the caller's pending seat on the run, or the refusal
+// that tells the client to refresh.
+func (s *WorkflowServer) pendingSeatFor(ctx context.Context, req *workflowv1.SignalRequest, run store.ApprovalRun) (store.AssignmentRow, error) {
+	seats, err := s.assignments.PendingSeats(ctx, run.PolicyVersionID, req.GetActorUserId())
+	if err != nil {
+		return store.AssignmentRow{}, internalErr(ctx, "pending seats: %w", err)
+	}
+	seat, err := pickSeat(seats, req.GetGroupId())
+	if errors.Is(err, errAmbiguousSeat) {
+		return store.AssignmentRow{}, status.Error(codes.InvalidArgument, "group_id is required: you hold seats in several groups on this stage")
+	}
+	if err != nil {
+		s.log.Ctx(ctx).Info("no pending seat", log.F("actor_user_id", req.GetActorUserId()),
+			log.F("policy_version_id", run.PolicyVersionID), log.F("group_id", req.GetGroupId()))
+		return store.AssignmentRow{}, status.Errorf(codes.FailedPrecondition,
+			"this approval is no longer active; refresh your inbox (no pending assignment for actor %q on policy_version %q)",
+			req.GetActorUserId(), run.PolicyVersionID)
+	}
+	return seat, nil
 }
 
 // recordWithdraw ends every pending seat of the version, marks the run

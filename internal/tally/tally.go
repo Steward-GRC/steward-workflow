@@ -18,17 +18,22 @@ const (
 
 // Resolve tallies a stage from its seats.
 //
-// Each individual seat is one vote, and a rejection on one rejects the stage.
+// Each individual seat is one vote, and a rejection on one is a vote against,
+// not the end of the stage: it only takes that seat's approval out of reach.
+// The stage ends rejected once the approvals still possible can no longer
+// reach the stage quorum, so a majority of three survives one rejection while
+// a majority of two does not.
+//
 // Each approve-as-group unit is one vote once its own quorum of yes votes on
 // its members' group seats is met; it rejects the stage once that quorum can
 // no longer be met. An individual seat never counts toward a group, and a group
 // seat never counts as an individual vote. A unit with no seated member (all
 // filtered out at assignment) takes no part.
 func Resolve(stage builder.Stage, rows []store.AssignmentRow) string {
-	if len(stage.GroupUnits) == 0 {
-		return resolveFlat(stage, rows)
-	}
-	satisfied, total := 0, 0
+	// satisfied is the votes already for; total is every vote on the stage
+	// (rejected ones included, as a majority is of the whole stage); lost is
+	// the votes that can no longer approve.
+	satisfied, total, lost := 0, 0, 0
 	for _, a := range rows {
 		if a.GroupID != "" {
 			continue
@@ -37,7 +42,7 @@ func Resolve(stage builder.Stage, rows []store.AssignmentRow) string {
 		case "superseded", "swapped_out":
 			continue
 		case "rejected":
-			return DecisionReject
+			lost++
 		case "approved":
 			satisfied++
 		}
@@ -53,11 +58,17 @@ func Resolve(stage builder.Stage, rows []store.AssignmentRow) string {
 		case builder.UnitSatisfied:
 			satisfied++
 		case builder.UnitRejected:
+			// A group that can no longer reach its own quorum ends the stage.
 			return DecisionReject
 		}
 	}
 	if builder.EvaluateQuorum(stage.Quorum, stage.QuorumN, satisfied, total) {
 		return DecisionApprove
+	}
+	// Reject only on evidence: a rejection was cast and, with every other
+	// open seat approving, the quorum is still short.
+	if lost > 0 && !builder.EvaluateQuorum(stage.Quorum, stage.QuorumN, total-lost, total) {
+		return DecisionReject
 	}
 	return DecisionPending
 }
@@ -74,25 +85,4 @@ func UnitSeats(groupID string, rows []store.AssignmentRow) (members []string, st
 		state[a.UserID] = a.State
 	}
 	return members, state
-}
-
-func resolveFlat(stage builder.Stage, rows []store.AssignmentRow) string {
-	var approved, pool int
-	for _, a := range rows {
-		switch a.State {
-		case "rejected":
-			return DecisionReject
-		case "superseded", "swapped_out":
-			continue
-		case "approved":
-			approved++
-			pool++
-		default:
-			pool++
-		}
-	}
-	if builder.EvaluateQuorum(stage.Quorum, stage.QuorumN, approved, pool) {
-		return DecisionApprove
-	}
-	return DecisionPending
 }
