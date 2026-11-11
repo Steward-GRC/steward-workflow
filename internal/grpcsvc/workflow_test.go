@@ -320,7 +320,7 @@ func (s *stubAssignments) GetAssignment(_ context.Context, pv string, stage int,
 func (s *stubAssignments) ListStageAssignments(_ context.Context, pv string, stage int) ([]store.AssignmentRow, error) {
 	var out []store.AssignmentRow
 	for k, v := range s.rows {
-		if k[:len(pv)] == pv {
+		if k[:len(pv)] == pv && v.StageIndex == stage {
 			out = append(out, v)
 		}
 	}

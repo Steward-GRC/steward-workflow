@@ -744,6 +744,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 	}
 	var stageAssignees []*workflowv1.StageAssignees
 	var stageUnitProgress []*workflowv1.StageUnitProgressList
+	var stageProgressList []*workflowv1.StageProgress
 	if s.assignments != nil {
 		for i := range stageNames {
 			rows, aerr := s.assignments.ListStageAssignments(ctx, req.GetPolicyVersionId(), i)
@@ -766,6 +767,16 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 				})
 			}
 			stageUnitProgress = append(stageUnitProgress, upl)
+			var seatRows []store.AssignmentRow
+			if aerr == nil {
+				seatRows = rows
+			}
+			sp := stageProgress(stage, seatRows)
+			stageProgressList = append(stageProgressList, sp)
+			s.log.Ctx(ctx).Debug("status stage progress",
+				log.F("policy_version_id", req.GetPolicyVersionId()), log.F("stage", i),
+				log.F("rule", sp.GetQuorum()), log.F("approvals", sp.GetApprovals()),
+				log.F("required", sp.GetRequired()), log.F("has_due", sp.GetDueAt() != nil))
 
 			sa := &workflowv1.StageAssignees{}
 			if aerr == nil && len(rows) > 0 {
@@ -812,6 +823,9 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 		CurrentStageIdx:   toInt32(currentStageIdx),
 		StageAssignees:    stageAssignees,
 		StageUnitProgress: stageUnitProgress,
+		SubmittedBy:       run.SubmittedBy,
+		SubmittedAt:       timestamppb.New(run.StartedAt),
+		StageProgress:     stageProgressList,
 	}, nil
 }
 
