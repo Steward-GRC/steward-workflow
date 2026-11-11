@@ -118,6 +118,10 @@ func newPathwayHarness(t *testing.T) *pathwayHarness {
 	return &pathwayHarness{lifecycleHarness: h, core: core, runStore: assignStore, defStore: defStore}
 }
 
+// submitterID is the submitting user. Core takes the actor as a UUID, and Submit
+// passes it on when it sets the version to in_review.
+const submitterID = "00000000-0000-0000-0000-0000000000a1"
+
 // coreStatusSetter adapts fakeCoreVersionClient to grpcsvc.CoreStatusSetter
 // (the withdraw path's "return version to draft" seam), exercising the same
 // actor contract the real core enforces.
@@ -167,7 +171,7 @@ func TestPathway_SubmitApprovePublishes(t *testing.T) {
 
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -197,7 +201,7 @@ func TestPathway_SubmitRejectRejected(t *testing.T) {
 
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -227,6 +231,17 @@ func TestPathway_SubmitRejectRejected(t *testing.T) {
 	if published, _ := h.core.wasPublished(); published {
 		t.Fatalf("core version was published on a reject; want not published")
 	}
+	// The final reject is written to core as rejected, and the run row agrees.
+	if gotStatus, _ := h.core.lastWrite(); gotStatus != "rejected" {
+		t.Fatalf("core last write = %q, want rejected", gotStatus)
+	}
+	run, err := h.runStore.GetRun(ctx, pv)
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	if run.Status != "rejected" {
+		t.Fatalf("approval_runs status = %q, want rejected", run.Status)
+	}
 }
 
 // PATHWAY 3: submit -> withdraw -> version returned to draft, inbox cleared,
@@ -238,7 +253,7 @@ func TestPathway_SubmitWithdrawDraft(t *testing.T) {
 
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -285,7 +300,7 @@ func TestPathway_ReSubmitPreservesPriorRun(t *testing.T) {
 
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("first Submit: %v", err)
 	}
@@ -301,7 +316,7 @@ func TestPathway_ReSubmitPreservesPriorRun(t *testing.T) {
 	// Re-submit: cancels the prior saga run AND aborts its approval_runs record.
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("re-Submit: %v", err)
 	}
@@ -361,7 +376,7 @@ func TestPathway_InboxFilteredByApprover(t *testing.T) {
 	for _, pv := range []string{"pvA", "pvB"} {
 		if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 			PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-			SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+			SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 		}); err != nil {
 			t.Fatalf("Submit(%s): %v", pv, err)
 		}

@@ -195,7 +195,7 @@ func (h *lifecycleHarness) submit(t *testing.T, pvID string) {
 	t.Helper()
 	_, err := h.srv.Submit(context.Background(), &workflowv1.SubmitRequest{
 		PolicyVersionId: pvID, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	})
 	if err != nil {
 		t.Fatalf("Submit(%s): %v", pvID, err)
@@ -333,9 +333,10 @@ func TestLifecycle_WithdrawClearsInbox(t *testing.T) {
 	if got := h.activeRunsForVersion(t, pv); got != 0 {
 		t.Fatalf("post-withdraw active runs = %d, want 0", got)
 	}
-	// D4: the withdraw must have returned the core version to draft.
-	if h.coreStatus.calls != 1 || h.coreStatus.lastStatus != "draft" {
-		t.Fatalf("post-withdraw core status: calls=%d last=%q, want 1 call to draft",
+	// D4: the submit set in_review and the withdraw returned the core version
+	// to draft.
+	if h.coreStatus.calls != 2 || h.coreStatus.lastStatus != "draft" {
+		t.Fatalf("post-withdraw core status: calls=%d last=%q, want in_review then draft",
 			h.coreStatus.calls, h.coreStatus.lastStatus)
 	}
 }

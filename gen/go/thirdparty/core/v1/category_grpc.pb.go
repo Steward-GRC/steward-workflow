@@ -29,6 +29,7 @@ const (
 	CategoryService_RenameCategory_FullMethodName         = "/steward.core.v1.CategoryService/RenameCategory"
 	CategoryService_DeleteCategory_FullMethodName         = "/steward.core.v1.CategoryService/DeleteCategory"
 	CategoryService_MoveCategory_FullMethodName           = "/steward.core.v1.CategoryService/MoveCategory"
+	CategoryService_ReorderCategories_FullMethodName      = "/steward.core.v1.CategoryService/ReorderCategories"
 	CategoryService_SetGovernance_FullMethodName          = "/steward.core.v1.CategoryService/SetGovernance"
 	CategoryService_GetEffectiveGovernance_FullMethodName = "/steward.core.v1.CategoryService/GetEffectiveGovernance"
 	CategoryService_GetCategoryRuleset_FullMethodName     = "/steward.core.v1.CategoryService/GetCategoryRuleset"
@@ -50,6 +51,9 @@ type CategoryServiceClient interface {
 	RenameCategory(ctx context.Context, in *RenameCategoryRequest, opts ...grpc.CallOption) (*RenameCategoryResponse, error)
 	DeleteCategory(ctx context.Context, in *DeleteCategoryRequest, opts ...grpc.CallOption) (*DeleteCategoryResponse, error)
 	MoveCategory(ctx context.Context, in *MoveCategoryRequest, opts ...grpc.CallOption) (*MoveCategoryResponse, error)
+	// ReorderCategories sets the order of one parent's children. It is
+	// InvalidArgument when the list is not every child exactly once.
+	ReorderCategories(ctx context.Context, in *ReorderCategoriesRequest, opts ...grpc.CallOption) (*ReorderCategoriesResponse, error)
 	SetGovernance(ctx context.Context, in *SetGovernanceRequest, opts ...grpc.CallOption) (*SetGovernanceResponse, error)
 	GetEffectiveGovernance(ctx context.Context, in *GetEffectiveGovernanceRequest, opts ...grpc.CallOption) (*GetEffectiveGovernanceResponse, error)
 	GetCategoryRuleset(ctx context.Context, in *GetCategoryRulesetRequest, opts ...grpc.CallOption) (*GetCategoryRulesetResponse, error)
@@ -141,6 +145,16 @@ func (c *categoryServiceClient) MoveCategory(ctx context.Context, in *MoveCatego
 	return out, nil
 }
 
+func (c *categoryServiceClient) ReorderCategories(ctx context.Context, in *ReorderCategoriesRequest, opts ...grpc.CallOption) (*ReorderCategoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReorderCategoriesResponse)
+	err := c.cc.Invoke(ctx, CategoryService_ReorderCategories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *categoryServiceClient) SetGovernance(ctx context.Context, in *SetGovernanceRequest, opts ...grpc.CallOption) (*SetGovernanceResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetGovernanceResponse)
@@ -205,6 +219,9 @@ type CategoryServiceServer interface {
 	RenameCategory(context.Context, *RenameCategoryRequest) (*RenameCategoryResponse, error)
 	DeleteCategory(context.Context, *DeleteCategoryRequest) (*DeleteCategoryResponse, error)
 	MoveCategory(context.Context, *MoveCategoryRequest) (*MoveCategoryResponse, error)
+	// ReorderCategories sets the order of one parent's children. It is
+	// InvalidArgument when the list is not every child exactly once.
+	ReorderCategories(context.Context, *ReorderCategoriesRequest) (*ReorderCategoriesResponse, error)
 	SetGovernance(context.Context, *SetGovernanceRequest) (*SetGovernanceResponse, error)
 	GetEffectiveGovernance(context.Context, *GetEffectiveGovernanceRequest) (*GetEffectiveGovernanceResponse, error)
 	GetCategoryRuleset(context.Context, *GetCategoryRulesetRequest) (*GetCategoryRulesetResponse, error)
@@ -246,6 +263,9 @@ func (UnimplementedCategoryServiceServer) DeleteCategory(context.Context, *Delet
 }
 func (UnimplementedCategoryServiceServer) MoveCategory(context.Context, *MoveCategoryRequest) (*MoveCategoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MoveCategory not implemented")
+}
+func (UnimplementedCategoryServiceServer) ReorderCategories(context.Context, *ReorderCategoriesRequest) (*ReorderCategoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReorderCategories not implemented")
 }
 func (UnimplementedCategoryServiceServer) SetGovernance(context.Context, *SetGovernanceRequest) (*SetGovernanceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetGovernance not implemented")
@@ -409,6 +429,24 @@ func _CategoryService_MoveCategory_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CategoryService_ReorderCategories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReorderCategoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CategoryServiceServer).ReorderCategories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CategoryService_ReorderCategories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CategoryServiceServer).ReorderCategories(ctx, req.(*ReorderCategoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CategoryService_SetGovernance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetGovernanceRequest)
 	if err := dec(in); err != nil {
@@ -533,6 +571,10 @@ var CategoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveCategory",
 			Handler:    _CategoryService_MoveCategory_Handler,
+		},
+		{
+			MethodName: "ReorderCategories",
+			Handler:    _CategoryService_ReorderCategories_Handler,
 		},
 		{
 			MethodName: "SetGovernance",

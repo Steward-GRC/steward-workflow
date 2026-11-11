@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	log "github.com/Bugs5382/go-log"
 	corev1 "github.com/Steward-GRC/steward-workflow/gen/go/thirdparty/core/v1"
 	"github.com/Steward-GRC/steward-workflow/internal/statemachine"
 	"google.golang.org/grpc"
@@ -72,12 +73,12 @@ type auditEmitter interface {
 // CorePolicyClient is the production PolicyServiceClient. It writes status back
 // to core and reads decisions from the approval store:
 //
-//   - SetStatus: a CORE version status (published/draft/superseded/archived) is
-//     written to core via SetVersionStatus; an approval-lifecycle status
-//     (approved/approved_scheduled/rejected/in_review/withdrawn) is written to
-//     the local approval_runs row (the workflow-side source of truth). This
-//     split exists because core's policy_version_status enum only has the four
-//     stored statuses; the lifecycle statuses live in approval_runs.
+//   - SetStatus: a CORE version status (draft/in_review/rejected/published/
+//     superseded/archived) is written to core via SetVersionStatus; an
+//     approval-lifecycle status (approved/approved_scheduled/withdrawn) is
+//     written to the local approval_runs row (the workflow-side source of
+//     truth). in_review and rejected are both: core stores them, and the run
+//     row keeps them for GetStatus.
 //   - Publish: SetVersionStatus(status=published).
 //   - ResolveDecision: delegates to the DecisionResolver (real recorded outcome).
 //   - EscalateStage: emits an audit event (full SLA notify is a follow-up).
@@ -88,6 +89,7 @@ type CorePolicyClient struct {
 	resolver stageDecider
 	audit    auditEmitter
 	actor    string // actor_user_id stamped on core SetVersionStatus calls (system actor)
+	log      log.Logger
 }
 
 // CorePolicyClientOpts collects the dependencies for NewCorePolicyClient.
@@ -97,13 +99,17 @@ type CorePolicyClientOpts struct {
 	RunRefs  runResolver
 	Resolver stageDecider
 	Audit    auditEmitter
-	Actor    string // defaults to "system" when empty
+	Actor    string     // defaults to "system" when empty
+	Logger   log.Logger // defaults to a no-op logger
 }
 
 // NewCorePolicyClient builds the production client.
 func NewCorePolicyClient(o CorePolicyClientOpts) *CorePolicyClient {
 	if o.Actor == "" {
 		o.Actor = "system"
+	}
+	if o.Logger == nil {
+		o.Logger = log.Nop()
 	}
 	return &CorePolicyClient{
 		core:     o.Core,
@@ -112,14 +118,16 @@ func NewCorePolicyClient(o CorePolicyClientOpts) *CorePolicyClient {
 		resolver: o.Resolver,
 		audit:    o.Audit,
 		actor:    o.Actor,
+		log:      o.Logger,
 	}
 }
 
-// isCoreVersionStatus reports whether status is one of core's four stored
+// isCoreVersionStatus reports whether status is one of core's stored
 // policy_version_status values (the only statuses SetVersionStatus accepts).
+// Core stores in_review and rejected since steward-core #52.
 func isCoreVersionStatus(status string) bool {
 	switch status {
-	case "draft", "published", "superseded", "archived":
+	case "draft", "in_review", "rejected", "published", "superseded", "archived":
 		return true
 	default:
 		return false
@@ -129,29 +137,44 @@ func isCoreVersionStatus(status string) bool {
 // SetStatus writes the status back to the correct system of record. Core version
 // statuses go to core; approval-lifecycle statuses update the approval_runs row.
 func (c *CorePolicyClient) SetStatus(ctx context.Context, policyVersionID, status string) error {
+	lg := c.log.Ctx(ctx).With(log.F("policy_version_id", policyVersionID), log.F("status", status))
 	if isCoreVersionStatus(status) {
+		lg.Debug("set status: writing to core")
 		_, err := c.core.SetVersionStatus(ctx, &corev1.SetVersionStatusRequest{
 			PolicyVersionId: policyVersionID,
 			Status:          status,
 			ActorUserId:     c.actor,
 		})
 		if err != nil {
+			lg.Error(err, "set status: core SetVersionStatus failed")
 			return fmt.Errorf("core SetVersionStatus(%s): %w", status, err)
 		}
-		return nil
+		// The run row also keeps the review outcomes, which GetStatus reads.
+		if status != "in_review" && status != "rejected" {
+			return nil
+		}
+		lg.Debug("set status: core written, updating the run row")
+		return c.updateRun(ctx, policyVersionID, status)
 	}
-	// Approval-lifecycle status (approved/approved_scheduled/rejected/in_review/
-	// withdrawn): persist on the approval_runs row, which is the workflow-side
-	// source of truth surfaced via GetStatus. "approved_scheduled" maps to the
-	// "scheduled" run status; everything else passes through unchanged.
+	// Approval-lifecycle status (approved/approved_scheduled/withdrawn): persist
+	// on the approval_runs row, which is the workflow-side source of truth
+	// surfaced via GetStatus. "approved_scheduled" maps to the "scheduled" run
+	// status; everything else passes through unchanged.
 	runStatus := status
 	if status == "approved_scheduled" {
 		runStatus = "scheduled"
 	}
+	lg.Debug("set status: lifecycle status, updating the run row", log.F("run_status", runStatus))
+	return c.updateRun(ctx, policyVersionID, runStatus)
+}
+
+func (c *CorePolicyClient) updateRun(ctx context.Context, policyVersionID, runStatus string) error {
 	if c.runs == nil {
 		return nil
 	}
 	if err := c.runs.UpdateRunStatus(ctx, policyVersionID, runStatus); err != nil {
+		c.log.Ctx(ctx).Error(err, "set status: update run status failed",
+			log.F("policy_version_id", policyVersionID), log.F("run_status", runStatus))
 		return fmt.Errorf("update run status(%s): %w", runStatus, err)
 	}
 	return nil

@@ -120,7 +120,7 @@ func TestMultiStage_GetStatusCurrentStageIdxAdvances(t *testing.T) {
 
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
