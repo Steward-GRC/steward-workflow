@@ -73,6 +73,9 @@ service WorkflowService {
   rpc CreateWorkflowDef(CreateWorkflowDefRequest) returns (CreateWorkflowDefResponse);
   rpc UpdateWorkflowDef(UpdateWorkflowDefRequest) returns (UpdateWorkflowDefResponse);
   rpc ArchiveWorkflowDef(ArchiveWorkflowDefRequest) returns (ArchiveWorkflowDefResponse);
+  // SetWorkflowVetoEnabled opts a workflow in or out of veto seats (admin
+  // only). A run carries the opt-in it was submitted under.
+  rpc SetWorkflowVetoEnabled(SetWorkflowVetoEnabledRequest) returns (SetWorkflowVetoEnabledResponse);
 
   // ResolveWorkflow returns the workflow a policy would be submitted under:
   // its own override, else its home category's default. Empty means none, so
@@ -137,6 +140,9 @@ message StageAssignee {
   google.protobuf.Timestamp decided_at = 4;
   // The group the seat votes for; empty for an individual seat.
   string group_id = 5;
+  // The seat holds a veto: its reject ends the run as rejected at once. Only
+  // set on a run whose workflow had opted in.
+  bool veto = 6;
 }
 
 message StageAssignees {
@@ -173,6 +179,9 @@ message GetStatusResponse {
   repeated StageAssignees stage_assignees = 5;
   // Index-aligned with stage_names; empty for a stage with no groups.
   repeated StageUnitProgressList stage_unit_progress = 6;
+  // The user whose reject from a veto seat ended the run; empty when the run
+  // was not ended by a veto.
+  string vetoed_by = 7;
 }
 
 message PendingTask {

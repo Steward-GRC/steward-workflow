@@ -18,6 +18,9 @@ const (
 
 // Resolve tallies a stage from its seats, by the mock server's rule.
 //
+// A rejected veto seat ends the stage at once, before any quorum is scored; a
+// run carries veto seats only when its workflow opted in (steward-workflow#26).
+//
 // The individual seats are scored against the stage quorum on their own. Each
 // one is a vote, and a rejection on one is a vote against, not the end of the
 // stage: it only takes that seat's approval out of reach. The individual seats
@@ -36,6 +39,10 @@ func Resolve(stage builder.Stage, rows []store.AssignmentRow) string {
 	// seat (rejected ones included, as a majority is of the whole stage); lost
 	// is the seats that can no longer approve.
 	approved, pool, lost := 0, 0, 0
+	if VetoedBy(rows) != "" {
+		// A reject from a veto seat ends the stage at once, whatever the quorum.
+		return DecisionReject
+	}
 	for _, a := range rows {
 		if a.GroupID != "" {
 			continue
@@ -92,4 +99,16 @@ func UnitSeats(groupID string, rows []store.AssignmentRow) (members []string, st
 		state[a.UserID] = a.State
 	}
 	return members, state
+}
+
+// VetoedBy returns the user whose reject from a veto seat ended the stage, or
+// "" when no veto seat has rejected. Seats carry the mark only on a run whose
+// workflow opted in, so a run without the opt-in never reports one.
+func VetoedBy(rows []store.AssignmentRow) string {
+	for _, a := range rows {
+		if a.Veto && a.State == "rejected" {
+			return a.UserID
+		}
+	}
+	return ""
 }

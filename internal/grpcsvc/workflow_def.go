@@ -5,7 +5,9 @@ package grpcsvc
 
 import (
 	"context"
+	"strconv"
 
+	log "github.com/Bugs5382/go-log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -20,6 +22,7 @@ type WorkflowDefStore interface {
 	List(ctx context.Context) ([]builder.WorkflowDef, error)
 	Update(ctx context.Context, id string, wd builder.WorkflowDef) (builder.WorkflowDef, error)
 	Archive(ctx context.Context, id string) error
+	SetVetoEnabled(ctx context.Context, id string, enabled bool) (builder.WorkflowDef, error)
 }
 
 // ListWorkflowDefs returns the definitions that aren't archived.
@@ -112,6 +115,36 @@ func (s *WorkflowServer) ArchiveWorkflowDef(ctx context.Context, req *workflowv1
 	return &workflowv1.ArchiveWorkflowDefResponse{}, nil
 }
 
+// SetWorkflowVetoEnabled opts a workflow in or out of veto seats. Only a
+// workflow admin may; the opt-in is off by default. A run keeps the opt-in it
+// was submitted under, so switching it never changes a review in flight.
+func (s *WorkflowServer) SetWorkflowVetoEnabled(ctx context.Context, req *workflowv1.SetWorkflowVetoEnabledRequest) (*workflowv1.SetWorkflowVetoEnabledResponse, error) {
+	lg := s.log.Ctx(ctx).With(log.F("workflow_def_id", req.GetId()), log.F("actor_user_id", req.GetActorUserId()))
+	lg.Debug("set veto enabled: enter", log.F("enabled", req.GetEnabled()))
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	if req.GetActorUserId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "actor_user_id is required")
+	}
+	admin, err := s.isAdmin(ctx, ActorClaims{UserID: req.GetActorUserId()})
+	if err != nil {
+		return nil, err
+	}
+	if !admin {
+		lg.Warn("set veto enabled refused: the caller is not a workflow admin")
+		return nil, status.Error(codes.PermissionDenied, "only a workflow admin may switch veto seats on or off")
+	}
+	updated, err := s.mustDefStore().SetVetoEnabled(ctx, req.GetId(), req.GetEnabled())
+	if err != nil {
+		lg.Error(err, "set veto enabled: store failed")
+		return nil, internalErr(ctx, "set veto enabled: %w", err)
+	}
+	s.auditEmit.EmitActor(ctx, "workflow_def.veto_enabled."+strconv.FormatBool(req.GetEnabled()), "id:"+req.GetId(), req.GetActorUserId())
+	lg.Info("set veto enabled: done", log.F("enabled", updated.VetoEnabled))
+	return &workflowv1.SetWorkflowVetoEnabledResponse{Def: defToProto(updated)}, nil
+}
+
 // mustDefStore returns the full store; wiring a read-only one is a
 // programming error.
 func (s *WorkflowServer) mustDefStore() WorkflowDefStore {
@@ -134,6 +167,7 @@ func defToProto(wd builder.WorkflowDef) *workflowv1.WorkflowDef {
 		Version:      toInt32(wd.Version),
 		Stages:       stages,
 		AuthorUserId: wd.AuthorUserID,
+		VetoEnabled:  wd.VetoEnabled,
 	}
 }
 
@@ -163,6 +197,8 @@ func stageToProto(s builder.Stage) *workflowv1.WorkflowStage {
 		SlaDays:             toInt32(s.SLADays),
 		RejectOnSlaBreach:   s.RejectOnSLABreach,
 		PinnedLast:          s.PinnedLast,
+		VetoApproverIds:     s.VetoApproverIDs,
+		VetoGroupIds:        s.VetoGroupIDs,
 	}
 }
 
@@ -192,6 +228,8 @@ func stageFromProto(ps *workflowv1.WorkflowStage) builder.Stage {
 		SLADays:             int(ps.GetSlaDays()),
 		RejectOnSLABreach:   ps.GetRejectOnSlaBreach(),
 		PinnedLast:          ps.GetPinnedLast(),
+		VetoApproverIDs:     ps.GetVetoApproverIds(),
+		VetoGroupIDs:        ps.GetVetoGroupIds(),
 	}
 }
 
