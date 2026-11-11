@@ -33,6 +33,11 @@ const (
 	PolicyVersionStatus_POLICY_VERSION_STATUS_PUBLISHED   PolicyVersionStatus = 2
 	PolicyVersionStatus_POLICY_VERSION_STATUS_SUPERSEDED  PolicyVersionStatus = 3
 	PolicyVersionStatus_POLICY_VERSION_STATUS_ARCHIVED    PolicyVersionStatus = 4
+	// Submitted for approval. The version keeps the draft slot and stays editable.
+	PolicyVersionStatus_POLICY_VERSION_STATUS_IN_REVIEW PolicyVersionStatus = 5
+	// Turned down by its approvers. Final: it stays stored as it was, is not the
+	// draft, and the author's next save starts a new draft.
+	PolicyVersionStatus_POLICY_VERSION_STATUS_REJECTED PolicyVersionStatus = 6
 )
 
 // Enum value maps for PolicyVersionStatus.
@@ -43,6 +48,8 @@ var (
 		2: "POLICY_VERSION_STATUS_PUBLISHED",
 		3: "POLICY_VERSION_STATUS_SUPERSEDED",
 		4: "POLICY_VERSION_STATUS_ARCHIVED",
+		5: "POLICY_VERSION_STATUS_IN_REVIEW",
+		6: "POLICY_VERSION_STATUS_REJECTED",
 	}
 	PolicyVersionStatus_value = map[string]int32{
 		"POLICY_VERSION_STATUS_UNSPECIFIED": 0,
@@ -50,6 +57,8 @@ var (
 		"POLICY_VERSION_STATUS_PUBLISHED":   2,
 		"POLICY_VERSION_STATUS_SUPERSEDED":  3,
 		"POLICY_VERSION_STATUS_ARCHIVED":    4,
+		"POLICY_VERSION_STATUS_IN_REVIEW":   5,
+		"POLICY_VERSION_STATUS_REJECTED":    6,
 	}
 )
 
@@ -1777,8 +1786,10 @@ func (*RecordBreakGlassReadResponse) Descriptor() ([]byte, []int) {
 	return file_steward_core_v1_policy_proto_rawDescGZIP(), []int{26}
 }
 
-// SetVersionStatusRequest writes a version's stored status: draft,
-// published, superseded or archived. The approval states live in workflow.
+// SetVersionStatusRequest writes a version's stored status: draft, in_review,
+// rejected, published, superseded or archived. Moving a version to in_review
+// is the submit: it is refused with INVALID_ARGUMENT while the version holds no
+// text. The per-stage approval states stay in workflow.
 type SetVersionStatusRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	PolicyVersionId string                 `protobuf:"bytes,1,opt,name=policy_version_id,json=policyVersionId,proto3" json:"policy_version_id,omitempty"`
@@ -4003,13 +4014,15 @@ const file_steward_core_v1_policy_proto_rawDesc = "" +
 	"\x1bReindexAllPublishedResponse\x12-\n" +
 	"\x12policies_reindexed\x18\x01 \x01(\x05R\x11policiesReindexed\x12\x18\n" +
 	"\askipped\x18\x02 \x01(\x05R\askipped\x12\x1a\n" +
-	"\bfailures\x18\x03 \x01(\x05R\bfailures*\xcc\x01\n" +
+	"\bfailures\x18\x03 \x01(\x05R\bfailures*\x95\x02\n" +
 	"\x13PolicyVersionStatus\x12%\n" +
 	"!POLICY_VERSION_STATUS_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bPOLICY_VERSION_STATUS_DRAFT\x10\x01\x12#\n" +
 	"\x1fPOLICY_VERSION_STATUS_PUBLISHED\x10\x02\x12$\n" +
 	" POLICY_VERSION_STATUS_SUPERSEDED\x10\x03\x12\"\n" +
-	"\x1ePOLICY_VERSION_STATUS_ARCHIVED\x10\x04*_\n" +
+	"\x1ePOLICY_VERSION_STATUS_ARCHIVED\x10\x04\x12#\n" +
+	"\x1fPOLICY_VERSION_STATUS_IN_REVIEW\x10\x05\x12\"\n" +
+	"\x1ePOLICY_VERSION_STATUS_REJECTED\x10\x06*_\n" +
 	"\vSensitivity\x12\x1b\n" +
 	"\x17SENSITIVITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14SENSITIVITY_STANDARD\x10\x01\x12\x19\n" +

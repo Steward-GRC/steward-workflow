@@ -113,7 +113,7 @@ func TestMultiStage_StageEntryCreatesAssignments(t *testing.T) {
 	// Submit → the saga runs s0_assign on Start, then parks at s0_task_0.
 	if _, err := h.srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}

@@ -83,8 +83,8 @@ type AuditEmitter interface {
 	EmitActorAttrs(ctx context.Context, action, subject, actorUserID, groupID string, attrs map[string]string)
 }
 
-// CoreStatusSetter writes a version's stored status to core. Withdraw needs
-// it to return the version to draft.
+// CoreStatusSetter writes a version's stored status to core: Submit sets
+// in_review and withdraw returns the version to draft.
 type CoreStatusSetter interface {
 	SetVersionStatus(ctx context.Context, policyVersionID, status, actorUserID string) error
 }
@@ -272,8 +272,30 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 		return nil, internalErr(ctx, "abort prior runs: %w", err)
 	}
 
+	// Core stores the submit: the version becomes in_review before the run
+	// starts, so a refusal there (no text) leaves nothing running. Without the
+	// setter the version would stay a draft while in review, a wiring fault.
+	if s.coreStatus == nil {
+		return nil, status.Error(codes.Unimplemented, "core status setter not wired")
+	}
+	lg.Debug("submit: setting the version to in_review in core")
+	if err := s.coreStatus.SetVersionStatus(ctx, req.GetPolicyVersionId(), "in_review", req.GetSubmittedBy()); err != nil {
+		lg.Error(err, "submit: core refused in_review")
+		if code := status.Code(err); code == codes.InvalidArgument || code == codes.FailedPrecondition || code == codes.NotFound {
+			return nil, status.Errorf(code, "submit: %s", status.Convert(err).Message())
+		}
+		return nil, internalErr(ctx, "set core version status to in_review: %w", err)
+	}
+	// revert returns the version to draft when the run cannot start.
+	revert := func() {
+		if rerr := s.coreStatus.SetVersionStatus(ctx, req.GetPolicyVersionId(), "draft", req.GetSubmittedBy()); rerr != nil {
+			lg.Error(rerr, "submit: could not return the version to draft after a failed start")
+		}
+	}
+
 	runID, err := s.sagaClient.StartRun(ctx, sagaDef.ID, runInputs)
 	if err != nil {
+		revert()
 		return nil, internalErr(ctx, "start saga run: %w", err)
 	}
 	if err := s.runStore.TrackRun(ctx, store.ApprovalRun{

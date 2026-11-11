@@ -530,6 +530,7 @@ func newTestServer() *WorkflowServer {
 		SagaClient:  &stubSagaClient{},
 		AuditEmit:   &stubAuditEmitter{},
 		Assignments: newStubAssignments(),
+		CoreStatus:  &stubCoreStatus{},
 		CompileOpts: builder.CompileOptions{StageSLAHours: 72, StageReminderHours: 48},
 		ActorExtractor: func(_ context.Context) (ActorClaims, bool) {
 			return ActorClaims{UserID: "test-actor", Roles: []string{"admin"}}, true

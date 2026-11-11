@@ -150,6 +150,7 @@ func run(ctx context.Context, logger log.Logger) error {
 		RunRefs:  runRefs{runStore},
 		Resolver: decisions,
 		Audit:    auditAdapter,
+		Logger:   logger,
 	})
 	engine, err := saga.Build(sagaStore, policyClient, decisions, assigner, logger)
 	if err != nil {

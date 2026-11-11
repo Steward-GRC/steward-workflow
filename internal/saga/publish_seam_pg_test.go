@@ -156,6 +156,7 @@ func newRealCoreHarness(t *testing.T) (*grpcsvc.WorkflowServer, *fakeCoreVersion
 		SagaClient:  sagaCli,
 		AuditEmit:   noopAudit{},
 		Assignments: assignments,
+		CoreStatus:  coreStatusSetter{core},
 		CompileOpts: builder.CompileOptions{StageSLAHours: 72, StageReminderHours: 48},
 	})
 
@@ -174,7 +175,7 @@ func TestPublishSeam_ApprovePublishesCoreVersion(t *testing.T) {
 
 	if _, err := srv.Submit(ctx, &workflowv1.SubmitRequest{
 		PolicyVersionId: pv, PolicyId: "pol-1", CategoryId: "g1",
-		SubmittedBy: "submitter", AncestorCategoryIds: []string{"g1"},
+		SubmittedBy: submitterID, AncestorCategoryIds: []string{"g1"},
 	}); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}

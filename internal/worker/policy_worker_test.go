@@ -258,3 +258,63 @@ func TestCorePolicyClient_EscalateEmitsAudit(t *testing.T) {
 		t.Fatalf("audit actions: %+v", au.actions)
 	}
 }
+
+// Core stores in_review and rejected now (steward-core #52), so SetStatus
+// writes them to core.
+func TestIsCoreVersionStatus(t *testing.T) {
+	for _, s := range []string{"draft", "in_review", "rejected", "published", "superseded", "archived"} {
+		if !isCoreVersionStatus(s) {
+			t.Errorf("%q should be a core version status", s)
+		}
+	}
+	for _, s := range []string{"approved", "approved_scheduled", "withdrawn", "", "bogus"} {
+		if isCoreVersionStatus(s) {
+			t.Errorf("%q must not be a core version status", s)
+		}
+	}
+}
+
+// The final reject writes rejected to core and still updates the run row, which
+// GetStatus reads.
+func TestCorePolicyClient_SetStatusRejectedHitsCoreAndRunStore(t *testing.T) {
+	core := &fakeCore{}
+	runs := &fakeRunStatus{}
+	c := NewCorePolicyClient(CorePolicyClientOpts{Core: core, Runs: runs})
+	if err := c.SetStatus(context.Background(), "pv-1", "rejected"); err != nil {
+		t.Fatalf("SetStatus: %v", err)
+	}
+	if len(core.calls) != 1 || core.calls[0].Status != "rejected" || core.calls[0].PolicyVersionId != "pv-1" {
+		t.Fatalf("core calls: %+v", core.calls)
+	}
+	if len(runs.calls) != 1 || runs.calls[0].status != "rejected" {
+		t.Fatalf("run calls: %+v", runs.calls)
+	}
+}
+
+func TestCorePolicyClient_SetStatusInReviewHitsCoreAndRunStore(t *testing.T) {
+	core := &fakeCore{}
+	runs := &fakeRunStatus{}
+	c := NewCorePolicyClient(CorePolicyClientOpts{Core: core, Runs: runs})
+	if err := c.SetStatus(context.Background(), "pv-1", "in_review"); err != nil {
+		t.Fatalf("SetStatus: %v", err)
+	}
+	if len(core.calls) != 1 || core.calls[0].Status != "in_review" {
+		t.Fatalf("core calls: %+v", core.calls)
+	}
+	if len(runs.calls) != 1 || runs.calls[0].status != "in_review" {
+		t.Fatalf("run calls: %+v", runs.calls)
+	}
+}
+
+// A failed core write leaves the run row alone, so the saga step retries both.
+func TestCorePolicyClient_SetStatusRejectedCoreErrorSkipsRunStore(t *testing.T) {
+	core := &fakeCore{err: errors.New("core down")}
+	runs := &fakeRunStatus{}
+	c := NewCorePolicyClient(CorePolicyClientOpts{Core: core, Runs: runs})
+	if err := c.SetStatus(context.Background(), "pv-1", "rejected"); err == nil {
+		t.Fatal("want the core error")
+	}
+	if len(runs.calls) != 0 {
+		t.Fatalf("run row written despite the core failure: %+v", runs.calls)
+	}
+}
