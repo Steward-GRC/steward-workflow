@@ -117,3 +117,14 @@ func TestGetStatusFields_MajorityNeedsMoreThanHalfOfTheSeats(t *testing.T) {
 	require.Equal(t, "majority", p.GetQuorum())
 	require.Equal(t, int32(2), p.GetRequired())
 }
+
+// Mock submit-seats.test.ts "leaves a unit with no reader out of the run": a
+// group unit none of whose members got a seat is not in the status groups.
+func TestGetStatusFields_UnitWithNoSeatedMemberIsLeftOut(t *testing.T) {
+	srv, _, _ := fieldsServer(t)
+	srv.defStore.(*stubWorkflowDefStore).wd.Stages[0].GroupUnits = []builder.GroupUnit{
+		{GroupID: "group-gone", InternalQuorum: builder.QuorumAny, Members: []string{fixture.Erin}},
+	}
+	units := fieldsStatus(t, srv).GetStageUnitProgress()[0].GetUnits()
+	require.Empty(t, units, "stage 0 is entered and nobody holds a seat for group-gone")
+}
