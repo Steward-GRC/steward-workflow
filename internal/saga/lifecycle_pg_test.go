@@ -358,6 +358,19 @@ func TestLifecycle_RejectTerminates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reject: %v", err)
 	}
+	// A rejection is a vote: the quorum of one is still reachable through
+	// approverB, so the run stays open until the second rejection.
+	if st := h.runState(t, runID); st != domain.RunStatePaused {
+		t.Fatalf("after one of two rejections run state = %s, want paused", st)
+	}
+	h.waitForPause(t, pv)
+	_, err = h.srv.Signal(context.Background(), &workflowv1.SignalRequest{
+		RunId: runID, TaskId: h.pendingTaskID(t, runID), Signal: workflowv1.SignalType_SIGNAL_TYPE_REJECT,
+		ActorUserId: "approverB", Comment: "no",
+	})
+	if err != nil {
+		t.Fatalf("second reject: %v", err)
+	}
 
 	if st := h.runState(t, runID); st == domain.RunStatePaused {
 		t.Fatalf("post-reject run is still paused; want terminal")

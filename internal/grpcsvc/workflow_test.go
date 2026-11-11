@@ -235,6 +235,9 @@ type stubAssignments struct {
 	findPendingErr error
 	terminateErr   error
 	reassignErr    error
+	// strictSeats stops PendingSeats from synthesizing a seat for a user who
+	// has none, so a test can see a refused decision.
+	strictSeats bool
 }
 
 // PendingSeats returns the user's pending seats, individual first,
@@ -249,6 +252,9 @@ func (s *stubAssignments) PendingSeats(_ context.Context, pv, user string) ([]st
 		if r.PolicyVersionID == pv && r.UserID == user && r.State == "pending" {
 			out = append(out, r)
 		}
+	}
+	if len(out) == 0 && s.strictSeats {
+		return nil, nil
 	}
 	if len(out) == 0 {
 		row := store.AssignmentRow{ID: "a-" + user, PolicyVersionID: pv, StageIndex: 0, UserID: user, State: "pending"}
@@ -389,6 +395,18 @@ func (s *stubAssignments) TerminatePendingAssignments(_ context.Context, pv, sta
 		}
 	}
 	return n, nil
+}
+
+func (s *stubAssignments) NoteChangesRequested(_ context.Context, assignmentID, actor, comment string) error {
+	for _, r := range s.rows {
+		if r.ID == assignmentID && r.State == "pending" {
+			s.history = append(s.history, store.HistoryEntry{
+				AssignmentID: assignmentID, Event: "changes_requested", ActorUserID: actor, Reason: comment,
+			})
+			return nil
+		}
+	}
+	return fmt.Errorf("assignment %q: %w", assignmentID, store.ErrSeatNotPending)
 }
 
 func (s *stubAssignments) Swap(_ context.Context, in store.SwapInput) (store.AssignmentRow, error) {

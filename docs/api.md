@@ -14,9 +14,15 @@ A run gives every approver of the stage it is on a seat. There are two kinds:
   `one`, `majority` or `all`) and then counts as one vote in the stage's quorum.
 
 A person who is an individual approver and a member of a group on the same stage holds both seats
-and votes each separately. An individual approval never counts toward a group's quorum. A rejection
-on an individual seat rejects the stage. A rejection on a group seat rejects the stage only once the
-group can no longer reach its quorum.
+and votes each separately. An individual approval never counts toward a group's quorum.
+
+A rejection is a vote, not a veto. A rejection on an individual seat takes that seat's approval out of
+reach, and the stage ends rejected only when the approvals still possible can no longer reach the
+stage quorum (`any`, `majority`, `all` or n-of): a majority of three survives one rejection, a
+majority of two or a stage with a single seat does not. The stage's other seats keep their tasks
+until it ends. A rejection on a group seat rejects the stage only once the group can no longer
+reach its own quorum. On a stage that mixes individual seats and groups, each individual seat and
+each group unit is one vote in the stage quorum.
 
 The `group_id` fields on `SignalRequest`, `Decision`, `SwapAssigneeRequest`,
 `GetStageEligiblePoolRequest` and `StageAssignee` name the seat; empty means the individual seat.
@@ -29,7 +35,7 @@ pending group seat.
 | --- | --- |
 | `ResolveWorkflow` | The workflow a policy would be submitted under: its override, else its home category's default. Empty: not submittable. |
 | `Submit` | Starts an approval run for a policy version, on the definition version current at submit. |
-| `Signal` | Approve, reject (both need a comment), request changes, withdraw or retire. Applies to the version's current run whatever `run_id` says. |
+| `Signal` | Approve, reject (both need a comment that is not blank), request changes, withdraw or retire. Applies to the version's current run whatever `run_id` says; a run that has ended refuses it with `FailedPrecondition`. Request changes keeps the caller's seat open and changes no status; the comment is kept in the seat's history. Withdraw returns the version to draft in core. |
 | `GetStatus` | The current run's status, stage names, seats and group tallies. |
 | `ListPendingTasks` | The stages awaiting the approver. |
 | `ListUpcomingTasks` | Active runs where the approver sits on a stage not started yet. |

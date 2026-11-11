@@ -273,6 +273,29 @@ func (a *Assignments) DecideAssignment(ctx context.Context, in DecideAssignmentI
 	})
 }
 
+// NoteChangesRequested records that the seat's holder sent comments back. The
+// seat stays pending and no decision is recorded; the comment is kept in the
+// seat's history. A seat that is no longer pending returns ErrSeatNotPending.
+func (a *Assignments) NoteChangesRequested(ctx context.Context, assignmentID, actorUserID, comment string) error {
+	return a.db.RunInTx(ctx, func(tx pgx.Tx) error {
+		var pending bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM approval_assignments WHERE id=$1 AND state='pending')`,
+			assignmentID).Scan(&pending); err != nil {
+			return fmt.Errorf("check seat: %w", err)
+		}
+		if !pending {
+			return fmt.Errorf("assignment %q: %w", assignmentID, ErrSeatNotPending)
+		}
+		return appendHistory(ctx, tx, historyRow{
+			AssignmentID: assignmentID,
+			Event:        "changes_requested",
+			ActorUserID:  actorUserID,
+			Reason:       comment,
+		})
+	})
+}
+
 // TerminatePendingAssignments moves every pending seat of a version, on every
 // stage, to state (withdrawn, say) with a history row each, so the version
 // leaves every approver's inbox. It returns how many it moved.

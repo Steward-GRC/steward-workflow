@@ -78,7 +78,11 @@ func TestResolver(t *testing.T) {
 	}{
 		{"any: one approval", builder.QuorumAny, 0, []store.AssignmentRow{row("approved"), row("pending")}, DecisionApprove},
 		{"any: none yet", builder.QuorumAny, 0, []store.AssignmentRow{row("pending"), row("pending")}, DecisionPending},
-		{"any rejection short-circuits", builder.QuorumAny, 0, []store.AssignmentRow{row("rejected"), row("approved")}, DecisionReject},
+		{"any: a rejection beside an approval is a lost vote", builder.QuorumAny, 0, []store.AssignmentRow{row("rejected"), row("approved")}, DecisionApprove},
+		{"any: one rejection while another seat is open", builder.QuorumAny, 0, []store.AssignmentRow{row("rejected"), row("pending")}, DecisionPending},
+		{"any: every seat rejected", builder.QuorumAny, 0, []store.AssignmentRow{row("rejected"), row("rejected")}, DecisionReject},
+		{"all: one rejection ends it", builder.QuorumAll, 0, []store.AssignmentRow{row("rejected"), row("pending")}, DecisionReject},
+		{"majority: 1 rejection of 3 keeps it reachable", builder.QuorumMajority, 0, []store.AssignmentRow{row("rejected"), row("pending"), row("pending")}, DecisionPending},
 		{"all: not all approved", builder.QuorumAll, 0, []store.AssignmentRow{row("approved"), row("pending")}, DecisionPending},
 		{"all: every active approved", builder.QuorumAll, 0, []store.AssignmentRow{row("approved"), row("approved")}, DecisionApprove},
 		{"all: superseded excluded from pool", builder.QuorumAll, 0, []store.AssignmentRow{row("approved"), row("superseded")}, DecisionApprove},

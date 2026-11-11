@@ -118,8 +118,8 @@ func (w WorkflowDef) Validate() error {
 }
 
 // EvaluateQuorum reports whether approved votes out of pool satisfy q. A
-// rejection is handled by the caller (it short-circuits), so only approvals
-// are counted here.
+// rejection stays in the pool and is never an approval; the caller decides
+// whether the approvals still possible can reach q (see tally.Resolve).
 func EvaluateQuorum(q Quorum, n, approved, pool int) bool {
 	switch q {
 	case QuorumAll:

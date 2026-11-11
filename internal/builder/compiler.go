@@ -47,7 +47,7 @@ func (o CompileOptions) StageSLA(stage Stage, now time.Time) (slaDeadline, remin
 //	s{i}_task_0            manual_approval: the stage's gate, with its SLA as due_in
 //	s{i}_resolve_decision  policy.resolve_decision: sets the run variable "decision"
 //	s{i}_outcome_switch    approve: next stage; reject: set_status_rejected;
-//	                       request_changes: stage 0; pending: back to s{i}_task_0
+//	                       request_changes and pending: back to s{i}_task_0
 //	s{i}_escalate          policy.escalate_stage, on the SLA timeout branch
 //
 // then set_status_approved, publish_now, set_status_rejected and end.
@@ -102,8 +102,7 @@ func Compile(wd WorkflowDef, opts CompileOptions) (domain.WorkflowDefinition, er
 			entryID = switchStepID
 		}
 
-		// Idempotent, so the request_changes loopback and engine retries can
-		// run it again; the pending loop goes back to the task, not here.
+		// Idempotent, so engine retries can run it again; the pending loop goes back to the task, not here.
 		steps = append(steps, domain.Step{
 			ID:     assignStepID,
 			Type:   domain.StepTypeAction,
@@ -185,7 +184,9 @@ func Compile(wd WorkflowDef, opts CompileOptions) (domain.WorkflowDefinition, er
 				steps[k].Branches["false"] = domain.Branch{Next: nextID}
 			case e.outcomeID:
 				steps[k].Branches["approve"] = domain.Branch{Next: nextID}
-				steps[k].Branches["request_changes"] = domain.Branch{Next: stage0Entry}
+				// Request changes keeps the seat open and changes nothing else,
+				// so it waits at the same gate as pending.
+				steps[k].Branches["request_changes"] = domain.Branch{Next: e.taskEntryID}
 				steps[k].Branches["pending"] = domain.Branch{Next: e.taskEntryID}
 			}
 		}

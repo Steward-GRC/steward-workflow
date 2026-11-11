@@ -4,6 +4,7 @@
 package builder
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Bugs5382/go-saga-orchestration/domain"
@@ -219,5 +220,34 @@ func TestCompile_RejectOnSLABreach(t *testing.T) {
 	// timeout must NOT route to escalate; it must route to the reject action step.
 	if byID["s0_task_0"].Branches["timeout"].Next == "s0_escalate" {
 		t.Fatal("reject_on_sla_breach should bypass escalate")
+	}
+}
+
+// Request changes keeps the approver's seat open and changes no status, so the
+// outcome switch sends it back to the stage's own gate, never to stage 0 (#39).
+func TestCompile_RequestChangesStaysOnTheStage(t *testing.T) {
+	wd := WorkflowDef{
+		Name: "Two stage",
+		Stages: []Stage{
+			{Name: "Review", Quorum: QuorumAny, ApproverIDs: []string{"a"}},
+			{Name: "Final", Quorum: QuorumAny, ApproverIDs: []string{"b"}},
+		},
+	}
+	def, err := Compile(wd, CompileOptions{})
+	if err != nil {
+		t.Fatalf("Compile: %v", err)
+	}
+	byID := map[string]domain.Step{}
+	for _, s := range def.Steps {
+		byID[s.ID] = s
+	}
+	for i, want := range []string{"s0_task_0", "s1_task_0"} {
+		sw := byID[fmt.Sprintf("s%d_outcome_switch", i)]
+		if got := sw.Branches["request_changes"].Next; got != want {
+			t.Fatalf("stage %d request_changes -> %q, want its own gate %q", i, got, want)
+		}
+		if got := sw.Branches["pending"].Next; got != want {
+			t.Fatalf("stage %d pending -> %q, want %q", i, got, want)
+		}
 	}
 }

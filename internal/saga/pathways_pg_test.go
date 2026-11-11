@@ -204,7 +204,14 @@ func TestPathway_SubmitRejectRejected(t *testing.T) {
 	runID := h.waitForPause(t, pv)
 	taskID := h.pendingTaskID(t, runID)
 
+	// A rejection is a vote: with two approvers under "any", the first one
+	// leaves the quorum reachable, so the run stays open.
 	h.signal(t, runID, taskID, workflowv1.SignalType_SIGNAL_TYPE_REJECT, "approverA", "no")
+	if got := h.activeRunsForVersion(t, pv); got != 1 {
+		t.Fatalf("after one of two rejections active runs = %d, want 1", got)
+	}
+	h.waitForPause(t, pv)
+	h.signal(t, runID, h.pendingTaskID(t, runID), workflowv1.SignalType_SIGNAL_TYPE_REJECT, "approverB", "no")
 
 	if st := h.runState(t, runID); st == domain.RunStatePaused {
 		t.Fatalf("post-reject run still paused; want terminal")
