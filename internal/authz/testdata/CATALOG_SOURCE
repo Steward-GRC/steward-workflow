@@ -1,0 +1,3 @@
+repo: Steward-GRC/steward-gateway
+path: internal/authz/catalog.json
+commit: 61612b02c0a09636ac773fdb806141aeda30c014

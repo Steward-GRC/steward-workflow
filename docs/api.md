@@ -89,12 +89,29 @@ The gateway and identity are its callers: identity re-points a merged account's 
 Workflow calls two services through protos pinned in `proto-refs.env`, never their Go modules, and
 sends its own workload token on each call:
 
-- **steward-core** (`CategoryService.GetCategory`, `PolicyService.GetPolicyVersion`, `GetPolicy`,
-  `SetVersionStatus`): a category's default workflow and owners, the policy the read filter checks,
+- **steward-core** (`CategoryService.GetCategory`, `GetEffectiveRuleset`,
+  `PolicyService.GetPolicyVersion`, `GetPolicy`, `SetVersionStatus`): a category's default workflow,
+  its rules and owners with its ancestors' in one call, the policy the approve decision is made for,
   and the version's status after approval or withdrawal.
-- **steward-identity** (`IdentityReadService.GetUser`, `grpc.health.v1`): a user's access for the
-  read filter (steward-authz's `policy.read`) and for an admin reassignment (`workflow.manage`), and
-  the health the outage reconciler watches.
+- **steward-identity** (`IdentityReadService.GetUser`, `ListAllUsers`, `grpc.health.v1`): a user's
+  access for the approve decision and the read check (the catalog's `policy.read`) and for an admin
+  reassignment (`workflow.manage`), the accounts an approver pool is drawn from, and the health the
+  outage reconciler watches.
+
+### Who may approve
+
+A designated approver (`approver_ids`, the category list in `approvers_by_category`, or a group's
+members) keeps a seat only when the category's rules allow them Approve. The rules are go-authz's
+`ordered` model: per top-level category, ordered rows with a cell per action (Read, Author, Approve,
+Manage, Ack), the first non-blank cell for an action wins, and a child's rows come before its
+parent's. Owners always approve and a deny does not remove them. Manage gives Read and Author, never
+Approve. Root, the account flagged as root in identity, always has Read, Author and Manage: a deny
+saved against it is reported but never applied. Approve and Ack are not global for root; they follow
+the rows, and so does every action for a site admin who is not root. The approver pool of a category
+is its owners (and its ancestors'), then everyone the rules allow Approve; root is in it only when a
+rule allows it. When too few designated approvers are left for the quorum, the owners join as seats.
+The permission catalog is `internal/authz/catalog.json`, a copy of the
+canonical one; `task catalog:refresh COMMIT=<sha>` re-fetches it.
 
 It publishes steward-audit's `AuditEvent`. Bump a pin, run `scripts/proto-generate.sh` and commit
 `gen/` together.

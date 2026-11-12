@@ -12,7 +12,7 @@ value that doesn't parse stops the service with every problem listed; nothing fa
 | `MIGRATIONS_DIR` | `migrations` | Where the SQL migrations are. The image sets `/migrations`. |
 | `RABBITMQ_URL` | required | The broker audit events and approval notices are published to. |
 | `IDENTITY_GRPC_ADDR` | `identity:9090` | steward-identity: user access and roles, and the health check the outage reconciler watches. |
-| `CORE_GRPC_ADDR` | `core:9090` | steward-core: a category's default workflow and owners, the policy for the read filter, and version status. |
+| `CORE_GRPC_ADDR` | `core:9090` | steward-core: a category's default workflow and owners, its rules and owners (GetEffectiveRuleset), the policy for the approve decision, and version status. |
 | `GRPC_PORT` | `9092` | The gRPC listen port. |
 | `PROBE_PORT` | `8080` | Plain HTTP for `/livez` and `/readyz`. |
 | `STAGE_SLA_HOURS` | `72` | A stage's SLA when it sets no `sla_days`. |
