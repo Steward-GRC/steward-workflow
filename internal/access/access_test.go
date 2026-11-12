@@ -406,3 +406,42 @@ func TestCoreAdapter_NoHomeCategoryHasNoRules(t *testing.T) {
 	require.Empty(t, cat.asked)
 	require.Empty(t, rs.Categories)
 }
+
+// Root always reads: a sensitive document it is not assigned to, and a
+// per-document override deny, do not take Read away from it.
+func TestCanRead_RootAlwaysReads(t *testing.T) {
+	deny := []authz.Override{{ResourceID: fixture.DeskBookingPolicyNumber, Grant: authz.GrantDeny}}
+	root := authz.Subject{UserID: rootID, Root: true, Roles: []authz.Role{authz.RoleSiteAdmin}}
+	sensitive := PolicyRef{Number: "POL-FACILITIES-000004", HomeCategoryID: fixture.Facilities, Sensitive: true}
+	plain := PolicyRef{Number: fixture.DeskBookingPolicyNumber, HomeCategoryID: fixture.Facilities}
+
+	require.True(t, CanRead(root, sensitive, false), "root reads a sensitive document it is not assigned to")
+
+	root.Overrides = deny
+	require.True(t, CanRead(root, plain, false), "a per-document deny cannot take Read from root")
+	require.True(t, CanRead(root, plain, true))
+}
+
+// A non-root site admin follows the rules: sensitive documents and override
+// denies still apply.
+func TestCanRead_NonRootSiteAdminFollowsTheRules(t *testing.T) {
+	deny := []authz.Override{{ResourceID: fixture.DeskBookingPolicyNumber, Grant: authz.GrantDeny}}
+	sensitive := PolicyRef{Number: "POL-FACILITIES-000004", HomeCategoryID: fixture.Facilities, Sensitive: true}
+	plain := PolicyRef{Number: fixture.DeskBookingPolicyNumber, HomeCategoryID: fixture.Facilities}
+	siteAdmin := authz.Subject{UserID: admin, Roles: []authz.Role{authz.RoleSiteAdmin}}
+
+	require.False(t, CanRead(siteAdmin, sensitive, false), "a non-root site admin is refused a sensitive document")
+	require.True(t, CanRead(siteAdmin, plain, false))
+	siteAdmin.Overrides = deny
+	require.False(t, CanRead(siteAdmin, plain, false), "an override deny still blocks a non-root site admin")
+}
+
+func TestCanRead_ReaderUnchanged(t *testing.T) {
+	reader := authz.Subject{UserID: member, Roles: []authz.Role{authz.Role("reader")}}
+	sensitive := PolicyRef{Number: "POL-FACILITIES-000004", HomeCategoryID: fixture.Facilities, Sensitive: true}
+	plain := PolicyRef{Number: fixture.DeskBookingPolicyNumber, HomeCategoryID: fixture.Facilities}
+
+	require.True(t, CanRead(reader, plain, false))
+	require.False(t, CanRead(reader, sensitive, false))
+	require.True(t, CanRead(reader, sensitive, true), "an assigned approver reads a sensitive document")
+}
