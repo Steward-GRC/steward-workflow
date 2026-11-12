@@ -5,6 +5,7 @@ package saga
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"testing"
 	"time"
@@ -245,16 +246,23 @@ func (r *recordingCreator) userIDs() []string {
 type fakeFilter struct {
 	deny   map[string]bool
 	owners []string
+	// backstopErr, when set, is returned by Backstop: a test uses it to prove
+	// the backstop is only asked for when the quorum cannot be met.
+	backstopErr error
 }
 
-func (f fakeFilter) Eligible(_ context.Context, _ string, candidates []string) ([]string, []string, error) {
+func (f fakeFilter) Eligible(_ context.Context, _ string, candidates []string) ([]string, error) {
 	var elig []string
 	for _, u := range candidates {
 		if !f.deny[u] {
 			elig = append(elig, u)
 		}
 	}
-	return elig, f.owners, nil
+	return elig, nil
+}
+
+func (f fakeFilter) Backstop(context.Context, string) ([]string, error) {
+	return f.owners, f.backstopErr
 }
 
 func TestStageAssigner_SkipsDeniedApprover(t *testing.T) {
@@ -268,6 +276,30 @@ func TestStageAssigner_SkipsDeniedApprover(t *testing.T) {
 	got := rec.userIDs()
 	if len(got) != 1 || got[0] != "a" {
 		t.Fatalf("assigned = %v, want [a] (b skipped)", got)
+	}
+}
+
+// The backstop (the category's owners and root) is only looked up when the
+// remaining approvers cannot meet the quorum.
+func TestStageAssigner_BackstopIsNotAskedWhenTheQuorumIsMet(t *testing.T) {
+	rec := &recordingCreator{}
+	sa := stageAssignerFor(nil, rec).WithAccessFilter(fakeFilter{backstopErr: errors.New("must not be asked")})
+	run := fakeSagaRun("run-filter-lazy", baseInputs(map[string]any{"approvers_s0": []string{"a", "b"}}))
+	if err := sa.AssignStage(context.Background(), run, 0); err != nil {
+		t.Fatalf("the backstop was asked for although the quorum was met: %v", err)
+	}
+	if got := rec.userIDs(); len(got) != 2 {
+		t.Fatalf("assigned = %v, want [a b]", got)
+	}
+}
+
+func TestStageAssigner_BackstopErrorFailsTheAssignment(t *testing.T) {
+	rec := &recordingCreator{}
+	boom := errors.New("identity unavailable")
+	sa := stageAssignerFor(nil, rec).WithAccessFilter(fakeFilter{deny: map[string]bool{"a": true, "b": true}, backstopErr: boom})
+	run := fakeSagaRun("run-filter-err", baseInputs(map[string]any{"approvers_s0": []string{"a", "b"}}))
+	if err := sa.AssignStage(context.Background(), run, 0); !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want the backstop error", err)
 	}
 }
 

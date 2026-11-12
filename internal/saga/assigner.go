@@ -27,10 +27,12 @@ type stageEntryRecorder interface {
 	RecordStageEntry(ctx context.Context, runID string, stageIdx int, at time.Time) error
 }
 
-// approverFilter drops the people who can't read the policy and supplies its
-// category's owners as the backstop.
+// approverFilter drops the designated approvers the category rules do not let
+// approve the policy, and supplies the category's owners and root as the
+// backstop. The backstop is asked for only when the quorum can't be met.
 type approverFilter interface {
-	Eligible(ctx context.Context, policyVersionID string, candidates []string) (eligible, owners []string, err error)
+	Eligible(ctx context.Context, policyVersionID string, candidates []string) (eligible []string, err error)
+	Backstop(ctx context.Context, policyVersionID string) (backstop []string, err error)
 }
 
 type approvalNotifier interface {
@@ -224,26 +226,26 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 	return nil
 }
 
-// applyFilter drops individuals and group members who can't read the policy.
-// When what is left can't meet the stage quorum, the category's owners join
-// as individual seats.
+// applyFilter drops individuals and group members the category rules don't let
+// approve the policy. When what is left can't meet the stage quorum, the
+// category's owners and root join as individual seats.
 func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage builder.Stage, individuals []string, units map[string][]string) ([]string, map[string][]string, error) {
 	candidates := append([]string(nil), individuals...)
 	for _, u := range stage.GroupUnits {
 		candidates = append(candidates, units[u.GroupID]...)
 	}
-	eligible, owners, err := a.filter.Eligible(ctx, pvID, dedupe(candidates))
+	eligible, err := a.filter.Eligible(ctx, pvID, dedupe(candidates))
 	if err != nil {
 		return nil, nil, err
 	}
-	readable := make(map[string]bool, len(eligible))
+	approvable := make(map[string]bool, len(eligible))
 	for _, u := range eligible {
-		readable[u] = true
+		approvable[u] = true
 	}
 	keep := func(ids []string) []string {
 		out := make([]string, 0, len(ids))
 		for _, id := range ids {
-			if readable[id] {
+			if approvable[id] {
 				out = append(out, id)
 			}
 		}
@@ -263,7 +265,11 @@ func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage buil
 		for _, u := range individuals {
 			seen[u] = true
 		}
-		for _, o := range owners {
+		backstop, err := a.filter.Backstop(ctx, pvID)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, o := range backstop {
 			if !seen[o] {
 				seen[o] = true
 				individuals = append(individuals, o)

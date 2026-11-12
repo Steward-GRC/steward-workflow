@@ -40,14 +40,18 @@ func TestStageAssigner_SeatsIndividualsAndGroupMembersSeparately(t *testing.T) {
 
 type denyFilter struct{ deny map[string]bool }
 
-func (f denyFilter) Eligible(_ context.Context, _ string, candidates []string) ([]string, []string, error) {
+func (f denyFilter) Backstop(context.Context, string) ([]string, error) {
+	return []string{fixture.Grace}, nil
+}
+
+func (f denyFilter) Eligible(_ context.Context, _ string, candidates []string) ([]string, error) {
 	var out []string
 	for _, c := range candidates {
 		if !f.deny[c] {
 			out = append(out, c)
 		}
 	}
-	return out, []string{fixture.Grace}, nil
+	return out, nil
 }
 
 func TestStageAssigner_FilterDropsGroupMembersWhoCantRead(t *testing.T) {
