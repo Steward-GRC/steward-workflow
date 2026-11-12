@@ -55,6 +55,6 @@ ticks. When it goes, the lock is released with its connection and another replic
 1. `GetStatus` for the version: which stage it's on and who holds its seats.
 2. `GetAssignmentHistory` for that stage: what happened to each seat.
 3. A stage with no seat logs `assign_stage: empty approver pool` or `no eligible approver and no
-   owner backstop`: the category rules allow nobody Approve, and the category has no owner and no root account. Reassign a seat
+   owner backstop`: the category rules allow nobody Approve, and the category has no owner. Reassign a seat
    (`SwapAssignee`) or withdraw and resubmit after fixing the definition.
 4. A resubmit cancels the version's earlier saga runs and keeps their records as `aborted`.

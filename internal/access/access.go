@@ -5,8 +5,8 @@
 // from core as the effective ruleset chain and decided by go-authz's ordered
 // engine, say who holds Approve; the catalog's read decision (rbac) still
 // applies, so a per-document deny override or a sensitive policy keeps an
-// approver out. The home category's owners and root back the stage up when too
-// few designated approvers are left.
+// approver out. The home category's owners (and its ancestors') back the stage
+// up when too few designated approvers are left.
 package access
 
 import (
@@ -90,8 +90,8 @@ func (r *Resolver) Eligible(ctx context.Context, policyVersionID string, candida
 }
 
 // Backstop returns the people who stand in when too few designated approvers
-// are left: the owners of the version's home category (and its ancestors),
-// then root.
+// are left: the owners of the version's home category and its ancestors. Root
+// is not one unless the owners list says so.
 func (r *Resolver) Backstop(ctx context.Context, policyVersionID string) ([]string, error) {
 	ref, err := r.core.PolicyRefForVersion(ctx, policyVersionID)
 	if err != nil {
@@ -103,16 +103,17 @@ func (r *Resolver) Backstop(ctx context.Context, policyVersionID string) ([]stri
 	}
 	out := make([]string, 0, len(pool))
 	for _, e := range pool {
-		if e.Reason == ordered.ReasonOwner || e.Reason == ordered.ReasonSuperuser {
+		if e.Reason == ordered.ReasonOwner {
 			out = append(out, e.Person)
 		}
 	}
 	return out, nil
 }
 
-// ApproverPool lists everyone who may approve in the category: its owners, then
-// root as a global approver, then each person the rules allow Approve. It is
-// drawn from the accounts identity lists.
+// ApproverPool lists everyone who may approve in the category: its owners (and
+// its ancestors'), then each person the rules allow Approve. Root is in it only
+// when a rule allows it. It is drawn from the accounts
+// identity lists.
 func (r *Resolver) ApproverPool(ctx context.Context, categoryID string) ([]ordered.PoolEntry, error) {
 	rs, err := r.core.Ruleset(ctx, categoryID)
 	if err != nil {

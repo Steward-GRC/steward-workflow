@@ -96,14 +96,15 @@ func newResolver(rs ordered.RuleSet) *Resolver {
 	return NewResolver(pr, core)
 }
 
-// The pool is the owners, then root, then whoever Approve allows.
+// The pool is the owners, then whoever Approve allows. Root is in it only when
+// the rules say so.
 func TestApproverPool_OwnersRootAndApproveAllowed(t *testing.T) {
 	rs := ruleset([]string{"user:" + owner}, approversMayApprove)
 	pool, err := newResolver(rs).ApproverPool(context.Background(), fixture.Facilities)
 	require.NoError(t, err)
-	require.Equal(t, []string{owner, rootID, member, admin}, ids(pool))
+	require.Equal(t, []string{owner, member, admin}, ids(pool))
 	require.Equal(t, ordered.ReasonOwner, pool[0].Reason)
-	require.Equal(t, ordered.ReasonSuperuser, pool[1].Reason)
+	require.NotContains(t, ids(pool), rootID, "root is not a global approver")
 }
 
 func TestApproverPool_ADenyRemovesSomeoneFromThePool(t *testing.T) {
@@ -117,7 +118,7 @@ func TestApproverPool_ADenyRemovesSomeoneFromThePool(t *testing.T) {
 	require.Contains(t, ids(pool), admin)
 }
 
-func TestApproverPool_ANonRootAdminFollowsADeny(t *testing.T) {
+func TestApproverPool_AnApproveDenyAppliesToANonRootAdminAndRoot(t *testing.T) {
 	rs := ruleset(nil,
 		ordered.Entry{Subject: "user:" + admin, Action: authz.ActApprove, Effect: ordered.Deny},
 		ordered.Entry{Subject: "user:" + rootID, Action: authz.ActApprove, Effect: ordered.Deny},
@@ -125,8 +126,29 @@ func TestApproverPool_ANonRootAdminFollowsADeny(t *testing.T) {
 	)
 	pool, err := newResolver(rs).ApproverPool(context.Background(), fixture.Facilities)
 	require.NoError(t, err)
-	require.NotContains(t, ids(pool), admin, "a site admin who is not root is bound by the deny")
-	require.Contains(t, ids(pool), rootID, "root is a global approver")
+	require.NotContains(t, ids(pool), admin)
+	require.NotContains(t, ids(pool), rootID)
+}
+
+func TestApproverPool_RootIsInOnlyWithAnApproveAllow(t *testing.T) {
+	none, err := newResolver(ruleset(nil)).ApproverPool(context.Background(), fixture.Facilities)
+	require.NoError(t, err)
+	require.Empty(t, ids(none), "no Approve cell: not even root")
+
+	rs := ruleset(nil,
+		ordered.Entry{Subject: "user:" + admin, Action: authz.ActApprove, Effect: ordered.Allow},
+		ordered.Entry{Subject: "user:" + rootID, Action: authz.ActApprove, Effect: ordered.Allow},
+	)
+	pool, err := newResolver(rs).ApproverPool(context.Background(), fixture.Facilities)
+	require.NoError(t, err)
+	require.Equal(t, []string{rootID, admin}, ids(pool))
+}
+
+func TestApproverPool_AReadDenyAgainstRootIsIgnoredAndReported(t *testing.T) {
+	rs := ruleset(nil, ordered.Entry{Subject: "user:" + rootID, Action: authz.ActRead, Effect: ordered.Deny})
+	d := authz.AccessModel().Decide(rs, ordered.Person{ID: rootID, Roles: []string{authz.RootRole}}, fixture.Facilities, authz.ActRead)
+	require.True(t, d.Allowed)
+	require.NotNil(t, d.ConfiguredBlock)
 }
 
 func TestApproverPool_EachActionIsStrict(t *testing.T) {
@@ -185,7 +207,7 @@ func TestEligible_FiltersTheDesignatedApproversByApprove(t *testing.T) {
 	rs := ruleset([]string{"user:" + owner}, approversMayApprove)
 	elig, err := newResolver(rs).Eligible(context.Background(), "pv1", []string{outsider, member, owner, rootID, admin})
 	require.NoError(t, err)
-	require.Equal(t, []string{member, owner, rootID, admin}, elig, "order kept, the outsider dropped, nobody added")
+	require.Equal(t, []string{member, owner, admin}, elig, "order kept, the outsider and root (no Approve cell) dropped, nobody added")
 }
 
 func TestEligible_ADenyDropsADesignatedApprover(t *testing.T) {
@@ -219,30 +241,51 @@ func TestEligible_AnAssignedApproverReadsASensitiveDocument(t *testing.T) {
 	require.Equal(t, []string{member}, elig)
 }
 
-func TestEligible_NoHomeCategoryLeavesOnlyRoot(t *testing.T) {
-	pr := fakePrincipals{principals: map[string]authz.Principal{
-		rootID: {Person: ordered.Person{ID: rootID, Roles: []string{authz.RootRole}}},
-	}}
-	core := fakeCore{ref: PolicyRef{Number: "POL-X"}, rs: ordered.RuleSet{}}
-	elig, err := NewResolver(pr, core).Eligible(context.Background(), "pv1", []string{member, rootID})
+func TestEligible_RootIsEligibleOnlyWithAnApproveAllow(t *testing.T) {
+	core := fakeCore{ref: PolicyRef{Number: "POL-X", HomeCategoryID: fixture.Facilities}, rs: ruleset(nil)}
+	elig, err := NewResolver(fakePrincipals{people: people()}, core).Eligible(context.Background(), "pv1", []string{rootID})
+	require.NoError(t, err)
+	require.Empty(t, elig)
+
+	allow := ordered.Entry{Subject: "user:" + rootID, Action: authz.ActApprove, Effect: ordered.Allow}
+	core.rs = ruleset(nil, allow)
+	elig, err = NewResolver(fakePrincipals{people: people()}, core).Eligible(context.Background(), "pv1", []string{rootID})
 	require.NoError(t, err)
 	require.Equal(t, []string{rootID}, elig)
+
+	core.rs = ruleset(nil, ordered.Entry{Subject: "user:" + rootID, Action: authz.ActApprove, Effect: ordered.Deny}, allow)
+	elig, err = NewResolver(fakePrincipals{people: people()}, core).Eligible(context.Background(), "pv1", []string{rootID})
+	require.NoError(t, err)
+	require.Empty(t, elig, "an Approve deny against root applies")
 }
 
-func TestEligible_PrincipalErrorPropagates(t *testing.T) {
-	sentinel := errors.New("identity unavailable")
-	r := NewResolver(fakePrincipals{err: sentinel}, fakeCore{ref: PolicyRef{Number: "POL-1"}})
-	elig, err := r.Eligible(context.Background(), "pv1", []string{member})
-	require.ErrorIs(t, err, sentinel)
-	require.Nil(t, elig)
+func TestEligible_NoHomeCategoryLeavesNobody(t *testing.T) {
+	core := fakeCore{ref: PolicyRef{Number: "POL-X"}, rs: ordered.RuleSet{}}
+	elig, err := NewResolver(fakePrincipals{people: people()}, core).Eligible(context.Background(), "pv1", []string{member, rootID})
+	require.NoError(t, err)
+	require.Empty(t, elig, "root approves only when a rule says so")
 }
 
-// The backstop is the category's owners and root, not everyone Approve allows.
-func TestBackstop_OwnersAndRootOnly(t *testing.T) {
+// The backstop is the category's owners, not root and not everyone Approve
+// allows.
+func TestBackstop_OwnersOnly(t *testing.T) {
 	rs := ruleset([]string{"user:" + owner}, approversMayApprove)
 	got, err := newResolver(rs).Backstop(context.Background(), "pv1")
 	require.NoError(t, err)
-	require.Equal(t, []string{owner, rootID}, got)
+	require.Equal(t, []string{owner}, got)
+}
+
+func TestBackstop_IncludesAncestorOwners(t *testing.T) {
+	rs := ordered.RuleSet{
+		Categories: map[string]ordered.Category{
+			fixture.Facilities: {Owners: []string{"user:" + owner}},
+			"Top":              {Owners: []string{"user:" + member}},
+		},
+		Parents: map[string]string{fixture.Facilities: "Top"},
+	}
+	got, err := newResolver(rs).Backstop(context.Background(), "pv1")
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{owner, member}, got)
 }
 
 func TestMeetsQuorum(t *testing.T) {

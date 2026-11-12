@@ -84,13 +84,16 @@ const RootRole = "root"
 // AccessModel is the ordered engine configured for Steward: the five default
 // actions (Manage implies Read and Author, Approve and Author imply Read, Ack
 // requires Read; owners hold Read, Author, Approve and Manage but not Ack) and
-// the root seat, exempt for every action except Ack. A site admin who is not
-// root follows the rows like anyone else.
+// the root seat. Root always holds Read, Author and Manage: no row can take
+// those away, and a deny saved against root is reported as the decision's
+// ConfiguredBlock but never applied. Approve and Ack are not global for root:
+// they follow the rows like anyone else's, and so does a site admin who is not
+// root, in every action.
 func AccessModel() ordered.Model {
 	m := ordered.DefaultModel()
 	m.Superusers = &ordered.Superusers{
 		Subjects: []string{"role:" + RootRole},
-		Actions:  []string{ActRead, ActAuthor, ActApprove, ActManage},
+		Actions:  []string{ActRead, ActAuthor, ActManage},
 	}
 	return m
 }

@@ -105,10 +105,12 @@ members) keeps a seat only when the category's rules allow them Approve. The rul
 `ordered` model: per top-level category, ordered rows with a cell per action (Read, Author, Approve,
 Manage, Ack), the first non-blank cell for an action wins, and a child's rows come before its
 parent's. Owners always approve and a deny does not remove them. Manage gives Read and Author, never
-Approve. A site admin who is not root follows the rules; only root, the account flagged as root in
-identity, is exempt (except for Ack). The approver pool of a category is its owners, then root, then
-everyone the rules allow Approve. When too few designated approvers are left for the quorum, the
-owners and root join as seats. The permission catalog is `internal/authz/catalog.json`, a copy of the
+Approve. Root, the account flagged as root in identity, always has Read, Author and Manage: a deny
+saved against it is reported but never applied. Approve and Ack are not global for root; they follow
+the rows, and so does every action for a site admin who is not root. The approver pool of a category
+is its owners (and its ancestors'), then everyone the rules allow Approve; root is in it only when a
+rule allows it. When too few designated approvers are left for the quorum, the owners join as seats.
+The permission catalog is `internal/authz/catalog.json`, a copy of the
 canonical one; `task catalog:refresh COMMIT=<sha>` re-fetches it.
 
 It publishes steward-audit's `AuditEvent`. Bump a pin, run `scripts/proto-generate.sh` and commit
