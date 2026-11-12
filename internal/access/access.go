@@ -43,7 +43,18 @@ type CoreReader interface {
 
 // CanRead reports whether s may read the policy. assigned says s is one of
 // its approvers, which lets them read a sensitive policy.
+//
+// The root seat always reads, so it is allowed before rbac is asked: a
+// sensitive policy it is not assigned to, and a per-document override deny,
+// cannot take Read away from it, and there is no obfuscation or break-glass
+// path for it. Short-circuiting here, rather than granting root ReadSensitive
+// and dropping its overrides when the subject is built, keeps the subject a
+// faithful copy of the account and covers every caller of this check. A
+// non-root site admin is not exempt and follows rbac as built.
 func CanRead(s authz.Subject, p PolicyRef, assigned bool) bool {
+	if s.Root {
+		return true
+	}
 	r := &authz.Resource{ID: p.Number, Category: p.HomeCategoryID, Sensitive: p.Sensitive}
 	if assigned {
 		r.Approvers = []string{s.UserID}
