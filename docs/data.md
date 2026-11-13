@@ -10,7 +10,7 @@ database, with its own migrations, so the two version sequences never share a ta
 | `workflow_defs` | Definitions in the builder model (`stages_json`), their live version, author and archive time |
 | `workflow_def_versions` | Earlier versions still pinned by a run; removed once no active run uses one |
 | `policy_workflow_overrides` | A policy's own workflow; a NULL definition means no approval |
-| `approval_runs` | Every run of a policy version, finished ones kept; at most one active (`in_review` or `scheduled`) per version |
+| `approval_runs` | Every run of a policy version, finished ones kept; at most one active (`in_review` or `scheduled`) per version; `requested_change_type` and `change_type_agreed_at` hold a pending change type lowering and when the first stage agreed to it |
 | `approval_assignments` | Seats: one per version, stage, person and group (`group_id` empty for an individual seat) |
 | `assignment_history` | Append-only log of every seat; `actor_user_id` is who really acted, `impersonated_user_id` who they acted as |
 | `workflow_run_state` | Per-version run state, paused while identity is unreachable |

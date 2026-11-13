@@ -60,6 +60,9 @@ type RunStoreWriter interface {
 	GetRun(ctx context.Context, policyVersionID string) (store.ApprovalRun, error)
 	GetRunByRunID(ctx context.Context, runID string) (store.ApprovalRun, error)
 	UpdateRunStatus(ctx context.Context, policyVersionID, status string) error
+	// MarkChangeTypeAgreed claims the run's change type agreement; true only
+	// for the caller that claimed it.
+	MarkChangeTypeAgreed(ctx context.Context, policyVersionID string) (bool, error)
 	ListActiveRuns(ctx context.Context) ([]store.ApprovalRun, error)
 }
 
@@ -92,10 +95,20 @@ type AuditEmitter interface {
 	EmitActorAttrs(ctx context.Context, action, subject, actorUserID, groupID string, attrs map[string]string)
 }
 
-// CoreStatusSetter writes a version's stored status to core: Submit sets
-// in_review and withdraw returns the version to draft.
+// CoreStatusSetter writes a version's stored status and change type to core:
+// Submit sets in_review with the author's change type pick, the first stage's
+// quorum records its agreement to a lowering, and withdraw returns the version
+// to draft.
 type CoreStatusSetter interface {
 	SetVersionStatus(ctx context.Context, policyVersionID, status, actorUserID string) error
+	// SubmitVersion sets in_review and passes the author's pick (unspecified
+	// for none). It returns the lowering core holds until the approvers agree,
+	// unspecified when the pick applied at once or none was made.
+	SubmitVersion(ctx context.Context, policyVersionID, actorUserID string, changeType workflowv1.ChangeType, reason string) (workflowv1.ChangeType, error)
+	// RecordChangeTypeAgreement tells core which users agreed to the pending
+	// lowering, which applies it. actorUserID is the user whose decision
+	// completed the quorum.
+	RecordChangeTypeAgreement(ctx context.Context, policyVersionID string, agreedByUserIDs []string, actorUserID string) error
 }
 
 // AdminChecker reports whether a user may reassign any approval as an admin.
@@ -374,8 +387,10 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 	if s.coreStatus == nil {
 		return nil, status.Error(codes.Unimplemented, "core status setter not wired")
 	}
-	lg.Debug("submit: setting the version to in_review in core")
-	if err := s.coreStatus.SetVersionStatus(ctx, req.GetPolicyVersionId(), "in_review", req.GetSubmittedBy()); err != nil {
+	lg.Debug("submit: setting the version to in_review in core", log.F("change_type", req.GetChangeType().String()),
+		log.F("has_reason", req.GetChangeTypeReason() != ""))
+	requested, err := s.coreStatus.SubmitVersion(ctx, req.GetPolicyVersionId(), req.GetSubmittedBy(), req.GetChangeType(), req.GetChangeTypeReason())
+	if err != nil {
 		lg.Error(err, "submit: core refused in_review")
 		if code := status.Code(err); code == codes.InvalidArgument || code == codes.FailedPrecondition || code == codes.NotFound {
 			return nil, status.Errorf(code, "submit: %s", status.Convert(err).Message())
@@ -406,10 +421,18 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 		// Kept so GetStatus can resolve a stage's per-category approvers
 		// before the stage is entered.
 		AncestorCategoryIDs: req.GetAncestorCategoryIds(),
+		// A pick below core's suggestion is held by core until the first
+		// stage's quorum agrees; the run remembers that it is due.
+		RequestedChangeType: changeTypeName(requested),
 	}); err != nil {
 		return nil, internalErr(ctx, "track run: %w", err)
 	}
-	lg.Info("submitted", log.F("run_id", runID), log.F("workflow_def_id", defID), log.F("workflow_version", wd.Version))
+	lg.Info("submitted", log.F("run_id", runID), log.F("workflow_def_id", defID), log.F("workflow_version", wd.Version),
+		log.F("requested_change_type", changeTypeName(requested)))
+	if requested != workflowv1.ChangeType_CHANGE_TYPE_UNSPECIFIED {
+		s.auditEmit.EmitActorAttrs(ctx, "workflow.change_type.requested", "policy_version:"+req.GetPolicyVersionId(),
+			req.GetSubmittedBy(), req.GetCategoryId(), map[string]string{"run_id": runID, "change_type": changeTypeName(requested)})
+	}
 
 	s.auditEmit.EmitActorAttrs(ctx, "workflow.submitted", "policy_version:"+req.GetPolicyVersionId(),
 		req.GetSubmittedBy(), req.GetCategoryId(), map[string]string{"run_id": runID, "workflow_def_id": defID})
@@ -691,6 +714,13 @@ func (s *WorkflowServer) recordDecision(ctx context.Context, req *workflowv1.Sig
 	decision := "approved"
 	if name == "reject" {
 		decision = "rejected"
+	}
+	if decision == "approved" {
+		// Before the decision is stored, so a refusal from core leaves the seat
+		// open and the approver can try again.
+		if err := s.agreeChangeTypeOnQuorum(ctx, run, seat, req.GetActorUserId()); err != nil {
+			return err
+		}
 	}
 	if err := s.assignments.DecideAssignment(ctx, store.DecideAssignmentInput{
 		AssignmentID: seat.ID, Decision: decision, Comment: req.GetComment(), ActorUserID: req.GetActorUserId(),
@@ -1214,6 +1244,16 @@ func (s *WorkflowServer) BulkDecide(ctx context.Context, req *workflowv1.BulkDec
 		decision := "approved"
 		if d.GetDecision() == workflowv1.DecisionType_DECISION_TYPE_REJECT {
 			decision = "rejected"
+		}
+		if decision == "approved" {
+			// A bulk approval can complete the first stage's quorum too.
+			run, rerr := s.runStore.GetRun(ctx, d.GetPolicyVersionId())
+			if rerr == nil {
+				if err := s.agreeChangeTypeOnQuorum(ctx, run, seat, actor.UserID); err != nil {
+					dr.Error = "change type agreement: " + status.Convert(err).Message()
+					continue
+				}
+			}
 		}
 		if err := s.assignments.DecideAssignment(ctx, store.DecideAssignmentInput{
 			AssignmentID: seat.ID, Decision: decision, Comment: d.GetComment(), ActorUserID: actor.UserID, BulkBatchID: &batchID,

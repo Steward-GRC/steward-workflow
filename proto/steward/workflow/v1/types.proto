@@ -30,3 +30,12 @@ enum SignalType {
   SIGNAL_TYPE_WITHDRAW = 4;
   SIGNAL_TYPE_RETIRE = 5;
 }
+
+// ChangeType is how big a change to a policy version is. The values match
+// core's ChangeType, so a pick passes through unchanged.
+enum ChangeType {
+  CHANGE_TYPE_UNSPECIFIED = 0;
+  CHANGE_TYPE_MAJOR = 1;
+  CHANGE_TYPE_MINOR = 2;
+  CHANGE_TYPE_FIX = 3;
+}

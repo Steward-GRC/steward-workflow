@@ -49,3 +49,41 @@ func TestTrackRun_KeepsAncestorCategories(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"cat-home", "cat-root"}, got.AncestorCategoryIDs)
 }
+
+// The run keeps the lowering the author asked for, and the agreement is
+// claimed once: the first caller wins, a second gets false (steward-workflow#10).
+func TestRun_KeepsTheRequestedChangeTypeAndClaimsTheAgreementOnce(t *testing.T) {
+	ctx := context.Background()
+	db := newTestDB(t)
+	rs := store.NewAssignmentStore(db)
+	def := seedDef(t, db)
+	require.NoError(t, rs.TrackRun(ctx, store.ApprovalRun{
+		PolicyVersionID: "pv-ct", RunID: "run-ct", WorkflowDefID: def, WorkflowVersion: 1, RequestedChangeType: "minor",
+	}))
+	require.NoError(t, rs.TrackRun(ctx, store.ApprovalRun{
+		PolicyVersionID: "pv-none", RunID: "run-none", WorkflowDefID: def, WorkflowVersion: 1,
+	}))
+
+	got, err := rs.GetRun(ctx, "pv-ct")
+	require.NoError(t, err)
+	require.Equal(t, "minor", got.RequestedChangeType)
+	require.Nil(t, got.ChangeTypeAgreedAt)
+
+	first, err := rs.MarkChangeTypeAgreed(ctx, "pv-ct")
+	require.NoError(t, err)
+	require.True(t, first)
+	second, err := rs.MarkChangeTypeAgreed(ctx, "pv-ct")
+	require.NoError(t, err)
+	require.False(t, second, "the agreement is claimed once")
+
+	got, err = rs.GetRun(ctx, "pv-ct")
+	require.NoError(t, err)
+	require.NotNil(t, got.ChangeTypeAgreedAt)
+
+	none, err := rs.GetRun(ctx, "pv-none")
+	require.NoError(t, err)
+	require.Empty(t, none.RequestedChangeType, "a run with no pick has nothing pending")
+	claimed, err := rs.MarkChangeTypeAgreed(ctx, "pv-none")
+	require.NoError(t, err)
+	require.False(t, claimed, "nothing pending, nothing to claim")
+}
