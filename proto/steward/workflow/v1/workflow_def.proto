@@ -42,12 +42,6 @@ message WorkflowStage {
   // category, then the nearest ancestor that has one.
   map<string, ApproverList> approvers_by_category = 8;
   repeated GroupUnit group_units = 9;
-  // Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
-  // empty. Removed in the cleanup change once the web has moved.
-  repeated string veto_approver_ids = 10;
-  // Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
-  // empty. Removed in the cleanup change once the web has moved.
-  repeated string veto_group_ids = 11;
   // The people on this stage whose single reject ends the version as rejected
   // at once, even inside a quorum. There is no workflow-wide switch: a
   // non-empty list applies by itself. Each must be one of the stage's explicit
@@ -57,6 +51,11 @@ message WorkflowStage {
   // approver pool holds no veto, without an error. Site admin, root and owners
   // who join only to make up a quorum never hold one.
   repeated string veto_user_ids = 12;
+
+  // veto_approver_ids and veto_group_ids were the old per-stage marks, replaced
+  // by veto_user_ids. Never reuse the numbers or names.
+  reserved 10, 11;
+  reserved "veto_approver_ids", "veto_group_ids";
 }
 
 // WorkflowDef is an admin-authored approval workflow. Every update bumps the
@@ -70,9 +69,12 @@ message WorkflowDef {
   // Who created or last edited the definition. They may reassign its runs'
   // approvals as the workflow author.
   string author_user_id = 6;
-  // Deprecated: stored and returned, but it gates nothing; a stage's
-  // veto_user_ids apply by themselves. Removed in the cleanup change.
-  bool veto_enabled = 7;
+
+  // veto_enabled was the old workflow-wide veto switch; the veto belongs to
+  // people on a stage (WorkflowStage.veto_user_ids). Never reuse the number or
+  // name.
+  reserved 7;
+  reserved "veto_enabled";
 }
 
 message ListWorkflowDefsRequest {}
@@ -118,15 +120,3 @@ message ArchiveWorkflowDefRequest {
 }
 
 message ArchiveWorkflowDefResponse {}
-
-// SetWorkflowVetoEnabledRequest switches a workflow's veto opt-in. The actor
-// must be a workflow admin. Deprecated: the flag gates nothing any more.
-message SetWorkflowVetoEnabledRequest {
-  string id = 1;
-  bool enabled = 2;
-  string actor_user_id = 3;
-}
-
-message SetWorkflowVetoEnabledResponse {
-  WorkflowDef def = 1;
-}

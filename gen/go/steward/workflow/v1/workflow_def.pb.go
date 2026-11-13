@@ -154,12 +154,6 @@ type WorkflowStage struct {
 	// category, then the nearest ancestor that has one.
 	ApproversByCategory map[string]*ApproverList `protobuf:"bytes,8,rep,name=approvers_by_category,json=approversByCategory,proto3" json:"approvers_by_category,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	GroupUnits          []*GroupUnit             `protobuf:"bytes,9,rep,name=group_units,json=groupUnits,proto3" json:"group_units,omitempty"`
-	// Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
-	// empty. Removed in the cleanup change once the web has moved.
-	VetoApproverIds []string `protobuf:"bytes,10,rep,name=veto_approver_ids,json=vetoApproverIds,proto3" json:"veto_approver_ids,omitempty"`
-	// Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
-	// empty. Removed in the cleanup change once the web has moved.
-	VetoGroupIds []string `protobuf:"bytes,11,rep,name=veto_group_ids,json=vetoGroupIds,proto3" json:"veto_group_ids,omitempty"`
 	// The people on this stage whose single reject ends the version as rejected
 	// at once, even inside a quorum. There is no workflow-wide switch: a
 	// non-empty list applies by itself. Each must be one of the stage's explicit
@@ -266,20 +260,6 @@ func (x *WorkflowStage) GetGroupUnits() []*GroupUnit {
 	return nil
 }
 
-func (x *WorkflowStage) GetVetoApproverIds() []string {
-	if x != nil {
-		return x.VetoApproverIds
-	}
-	return nil
-}
-
-func (x *WorkflowStage) GetVetoGroupIds() []string {
-	if x != nil {
-		return x.VetoGroupIds
-	}
-	return nil
-}
-
 func (x *WorkflowStage) GetVetoUserIds() []string {
 	if x != nil {
 		return x.VetoUserIds
@@ -298,10 +278,7 @@ type WorkflowDef struct {
 	Stages      []*WorkflowStage       `protobuf:"bytes,5,rep,name=stages,proto3" json:"stages,omitempty"`
 	// Who created or last edited the definition. They may reassign its runs'
 	// approvals as the workflow author.
-	AuthorUserId string `protobuf:"bytes,6,opt,name=author_user_id,json=authorUserId,proto3" json:"author_user_id,omitempty"`
-	// Deprecated: stored and returned, but it gates nothing; a stage's
-	// veto_user_ids apply by themselves. Removed in the cleanup change.
-	VetoEnabled   bool `protobuf:"varint,7,opt,name=veto_enabled,json=vetoEnabled,proto3" json:"veto_enabled,omitempty"`
+	AuthorUserId  string `protobuf:"bytes,6,opt,name=author_user_id,json=authorUserId,proto3" json:"author_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -376,13 +353,6 @@ func (x *WorkflowDef) GetAuthorUserId() string {
 		return x.AuthorUserId
 	}
 	return ""
-}
-
-func (x *WorkflowDef) GetVetoEnabled() bool {
-	if x != nil {
-		return x.VetoEnabled
-	}
-	return false
 }
 
 type ListWorkflowDefsRequest struct {
@@ -873,112 +843,6 @@ func (*ArchiveWorkflowDefResponse) Descriptor() ([]byte, []int) {
 	return file_steward_workflow_v1_workflow_def_proto_rawDescGZIP(), []int{13}
 }
 
-// SetWorkflowVetoEnabledRequest switches a workflow's veto opt-in. The actor
-// must be a workflow admin. Deprecated: the flag gates nothing any more.
-type SetWorkflowVetoEnabledRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Enabled       bool                   `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ActorUserId   string                 `protobuf:"bytes,3,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SetWorkflowVetoEnabledRequest) Reset() {
-	*x = SetWorkflowVetoEnabledRequest{}
-	mi := &file_steward_workflow_v1_workflow_def_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SetWorkflowVetoEnabledRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SetWorkflowVetoEnabledRequest) ProtoMessage() {}
-
-func (x *SetWorkflowVetoEnabledRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_def_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SetWorkflowVetoEnabledRequest.ProtoReflect.Descriptor instead.
-func (*SetWorkflowVetoEnabledRequest) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_def_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *SetWorkflowVetoEnabledRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *SetWorkflowVetoEnabledRequest) GetEnabled() bool {
-	if x != nil {
-		return x.Enabled
-	}
-	return false
-}
-
-func (x *SetWorkflowVetoEnabledRequest) GetActorUserId() string {
-	if x != nil {
-		return x.ActorUserId
-	}
-	return ""
-}
-
-type SetWorkflowVetoEnabledResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Def           *WorkflowDef           `protobuf:"bytes,1,opt,name=def,proto3" json:"def,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SetWorkflowVetoEnabledResponse) Reset() {
-	*x = SetWorkflowVetoEnabledResponse{}
-	mi := &file_steward_workflow_v1_workflow_def_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SetWorkflowVetoEnabledResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SetWorkflowVetoEnabledResponse) ProtoMessage() {}
-
-func (x *SetWorkflowVetoEnabledResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_steward_workflow_v1_workflow_def_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SetWorkflowVetoEnabledResponse.ProtoReflect.Descriptor instead.
-func (*SetWorkflowVetoEnabledResponse) Descriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_def_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *SetWorkflowVetoEnabledResponse) GetDef() *WorkflowDef {
-	if x != nil {
-		return x.Def
-	}
-	return nil
-}
-
 var File_steward_workflow_v1_workflow_def_proto protoreflect.FileDescriptor
 
 const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
@@ -989,7 +853,7 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"\tGroupUnit\x12\x19\n" +
 	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12'\n" +
 	"\x0finternal_quorum\x18\x02 \x01(\tR\x0einternalQuorum\x12&\n" +
-	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xee\x04\n" +
+	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xcb\x04\n" +
 	"\rWorkflowStage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -1001,22 +865,19 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"pinnedLast\x12o\n" +
 	"\x15approvers_by_category\x18\b \x03(\v2;.steward.workflow.v1.WorkflowStage.ApproversByCategoryEntryR\x13approversByCategory\x12?\n" +
 	"\vgroup_units\x18\t \x03(\v2\x1e.steward.workflow.v1.GroupUnitR\n" +
-	"groupUnits\x12*\n" +
-	"\x11veto_approver_ids\x18\n" +
-	" \x03(\tR\x0fvetoApproverIds\x12$\n" +
-	"\x0eveto_group_ids\x18\v \x03(\tR\fvetoGroupIds\x12\"\n" +
+	"groupUnits\x12\"\n" +
 	"\rveto_user_ids\x18\f \x03(\tR\vvetoUserIds\x1ai\n" +
 	"\x18ApproversByCategoryEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x127\n" +
-	"\x05value\x18\x02 \x01(\v2!.steward.workflow.v1.ApproverListR\x05value:\x028\x01\"\xf2\x01\n" +
+	"\x05value\x18\x02 \x01(\v2!.steward.workflow.v1.ApproverListR\x05value:\x028\x01J\x04\b\n" +
+	"\x10\vJ\x04\b\v\x10\fR\x11veto_approver_idsR\x0eveto_group_ids\"\xe3\x01\n" +
 	"\vWorkflowDef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x18\n" +
 	"\aversion\x18\x04 \x01(\x05R\aversion\x12:\n" +
 	"\x06stages\x18\x05 \x03(\v2\".steward.workflow.v1.WorkflowStageR\x06stages\x12$\n" +
-	"\x0eauthor_user_id\x18\x06 \x01(\tR\fauthorUserId\x12!\n" +
-	"\fveto_enabled\x18\a \x01(\bR\vvetoEnabled\"\x19\n" +
+	"\x0eauthor_user_id\x18\x06 \x01(\tR\fauthorUserIdJ\x04\b\a\x10\bR\fveto_enabled\"\x19\n" +
 	"\x17ListWorkflowDefsRequest\"P\n" +
 	"\x18ListWorkflowDefsResponse\x124\n" +
 	"\x04defs\x18\x01 \x03(\v2 .steward.workflow.v1.WorkflowDefR\x04defs\"'\n" +
@@ -1042,13 +903,7 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"\x19ArchiveWorkflowDefRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
 	"\ractor_user_id\x18\x02 \x01(\tR\vactorUserId\"\x1c\n" +
-	"\x1aArchiveWorkflowDefResponse\"m\n" +
-	"\x1dSetWorkflowVetoEnabledRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\aenabled\x18\x02 \x01(\bR\aenabled\x12\"\n" +
-	"\ractor_user_id\x18\x03 \x01(\tR\vactorUserId\"T\n" +
-	"\x1eSetWorkflowVetoEnabledResponse\x122\n" +
-	"\x03def\x18\x01 \x01(\v2 .steward.workflow.v1.WorkflowDefR\x03defBOZMgithub.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1b\x06proto3"
+	"\x1aArchiveWorkflowDefResponseBOZMgithub.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_steward_workflow_v1_workflow_def_proto_rawDescOnce sync.Once
@@ -1062,28 +917,26 @@ func file_steward_workflow_v1_workflow_def_proto_rawDescGZIP() []byte {
 	return file_steward_workflow_v1_workflow_def_proto_rawDescData
 }
 
-var file_steward_workflow_v1_workflow_def_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_steward_workflow_v1_workflow_def_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_steward_workflow_v1_workflow_def_proto_goTypes = []any{
-	(*ApproverList)(nil),                   // 0: steward.workflow.v1.ApproverList
-	(*GroupUnit)(nil),                      // 1: steward.workflow.v1.GroupUnit
-	(*WorkflowStage)(nil),                  // 2: steward.workflow.v1.WorkflowStage
-	(*WorkflowDef)(nil),                    // 3: steward.workflow.v1.WorkflowDef
-	(*ListWorkflowDefsRequest)(nil),        // 4: steward.workflow.v1.ListWorkflowDefsRequest
-	(*ListWorkflowDefsResponse)(nil),       // 5: steward.workflow.v1.ListWorkflowDefsResponse
-	(*GetWorkflowDefRequest)(nil),          // 6: steward.workflow.v1.GetWorkflowDefRequest
-	(*GetWorkflowDefResponse)(nil),         // 7: steward.workflow.v1.GetWorkflowDefResponse
-	(*CreateWorkflowDefRequest)(nil),       // 8: steward.workflow.v1.CreateWorkflowDefRequest
-	(*CreateWorkflowDefResponse)(nil),      // 9: steward.workflow.v1.CreateWorkflowDefResponse
-	(*UpdateWorkflowDefRequest)(nil),       // 10: steward.workflow.v1.UpdateWorkflowDefRequest
-	(*UpdateWorkflowDefResponse)(nil),      // 11: steward.workflow.v1.UpdateWorkflowDefResponse
-	(*ArchiveWorkflowDefRequest)(nil),      // 12: steward.workflow.v1.ArchiveWorkflowDefRequest
-	(*ArchiveWorkflowDefResponse)(nil),     // 13: steward.workflow.v1.ArchiveWorkflowDefResponse
-	(*SetWorkflowVetoEnabledRequest)(nil),  // 14: steward.workflow.v1.SetWorkflowVetoEnabledRequest
-	(*SetWorkflowVetoEnabledResponse)(nil), // 15: steward.workflow.v1.SetWorkflowVetoEnabledResponse
-	nil,                                    // 16: steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry
+	(*ApproverList)(nil),               // 0: steward.workflow.v1.ApproverList
+	(*GroupUnit)(nil),                  // 1: steward.workflow.v1.GroupUnit
+	(*WorkflowStage)(nil),              // 2: steward.workflow.v1.WorkflowStage
+	(*WorkflowDef)(nil),                // 3: steward.workflow.v1.WorkflowDef
+	(*ListWorkflowDefsRequest)(nil),    // 4: steward.workflow.v1.ListWorkflowDefsRequest
+	(*ListWorkflowDefsResponse)(nil),   // 5: steward.workflow.v1.ListWorkflowDefsResponse
+	(*GetWorkflowDefRequest)(nil),      // 6: steward.workflow.v1.GetWorkflowDefRequest
+	(*GetWorkflowDefResponse)(nil),     // 7: steward.workflow.v1.GetWorkflowDefResponse
+	(*CreateWorkflowDefRequest)(nil),   // 8: steward.workflow.v1.CreateWorkflowDefRequest
+	(*CreateWorkflowDefResponse)(nil),  // 9: steward.workflow.v1.CreateWorkflowDefResponse
+	(*UpdateWorkflowDefRequest)(nil),   // 10: steward.workflow.v1.UpdateWorkflowDefRequest
+	(*UpdateWorkflowDefResponse)(nil),  // 11: steward.workflow.v1.UpdateWorkflowDefResponse
+	(*ArchiveWorkflowDefRequest)(nil),  // 12: steward.workflow.v1.ArchiveWorkflowDefRequest
+	(*ArchiveWorkflowDefResponse)(nil), // 13: steward.workflow.v1.ArchiveWorkflowDefResponse
+	nil,                                // 14: steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry
 }
 var file_steward_workflow_v1_workflow_def_proto_depIdxs = []int32{
-	16, // 0: steward.workflow.v1.WorkflowStage.approvers_by_category:type_name -> steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry
+	14, // 0: steward.workflow.v1.WorkflowStage.approvers_by_category:type_name -> steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry
 	1,  // 1: steward.workflow.v1.WorkflowStage.group_units:type_name -> steward.workflow.v1.GroupUnit
 	2,  // 2: steward.workflow.v1.WorkflowDef.stages:type_name -> steward.workflow.v1.WorkflowStage
 	3,  // 3: steward.workflow.v1.ListWorkflowDefsResponse.defs:type_name -> steward.workflow.v1.WorkflowDef
@@ -1092,13 +945,12 @@ var file_steward_workflow_v1_workflow_def_proto_depIdxs = []int32{
 	3,  // 6: steward.workflow.v1.CreateWorkflowDefResponse.def:type_name -> steward.workflow.v1.WorkflowDef
 	2,  // 7: steward.workflow.v1.UpdateWorkflowDefRequest.stages:type_name -> steward.workflow.v1.WorkflowStage
 	3,  // 8: steward.workflow.v1.UpdateWorkflowDefResponse.def:type_name -> steward.workflow.v1.WorkflowDef
-	3,  // 9: steward.workflow.v1.SetWorkflowVetoEnabledResponse.def:type_name -> steward.workflow.v1.WorkflowDef
-	0,  // 10: steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry.value:type_name -> steward.workflow.v1.ApproverList
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	0,  // 9: steward.workflow.v1.WorkflowStage.ApproversByCategoryEntry.value:type_name -> steward.workflow.v1.ApproverList
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_steward_workflow_v1_workflow_def_proto_init() }
@@ -1112,7 +964,7 @@ func file_steward_workflow_v1_workflow_def_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_steward_workflow_v1_workflow_def_proto_rawDesc), len(file_steward_workflow_v1_workflow_def_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

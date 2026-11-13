@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	pg "github.com/Bugs5382/go-postgres"
+
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 )
 
@@ -39,6 +41,20 @@ func migration0005(t *testing.T, name string) string {
 	b, err := os.ReadFile("../../migrations/0005_stage_veto_people." + name + ".sql")
 	require.NoError(t, err)
 	return string(b)
+}
+
+// oldKey returns the raw JSON of a key on the first stage of a stored version
+// (the live row when version is the definition's current one).
+func oldKey(t *testing.T, q pg.Querier, defID string, version int, key string) string {
+	t.Helper()
+	var raw string
+	require.NoError(t, q.QueryRow(context.Background(),
+		`SELECT stage -> $3::text FROM (
+		   SELECT stages_json -> 0 AS stage FROM workflow_defs WHERE id = $1 AND version = $2
+		   UNION ALL
+		   SELECT stages_json -> 0 FROM workflow_def_versions WHERE def_id = $1 AND version = $2) x`,
+		defID, version, key).Scan(&raw))
+	return raw
 }
 
 const legacyStages = `[
@@ -87,9 +103,9 @@ func TestMigration0005_MovesVetoMarksOntoPeople(t *testing.T) {
 		require.Equal(t, []string{"u4", "u1", "m1", "m2"}, got.Stages[0].VetoUserIDs, "version %d", version)
 		require.Empty(t, got.Stages[1].VetoUserIDs, "a stage with no marks stays without people")
 		require.Equal(t, []string{"m3"}, got.Stages[2].VetoUserIDs, "a veto group with no unit adds nobody")
-		// The old keys are kept until the cleanup change.
-		require.Equal(t, []string{"u4", "u1", "ghost"}, got.Stages[0].VetoApproverIDs)
-		require.Equal(t, []string{"g1"}, got.Stages[0].VetoGroupIDs)
+		// The old keys are kept in the JSON until migration 0006.
+		require.JSONEq(t, `["u4","u1","ghost"]`, oldKey(t, q, enabled, version, "veto_approver_ids"))
+		require.JSONEq(t, `["g1"]`, oldKey(t, q, enabled, version, "veto_group_ids"))
 	}
 
 	// A switch that was off activates nothing.
@@ -99,7 +115,7 @@ func TestMigration0005_MovesVetoMarksOntoPeople(t *testing.T) {
 		for i, st := range got.Stages {
 			require.Empty(t, st.VetoUserIDs, "disabled workflow, stage %d, version %d", i, version)
 		}
-		require.Equal(t, []string{"u4", "u1", "ghost"}, got.Stages[0].VetoApproverIDs, "marks kept, inert")
+		require.JSONEq(t, `["u4","u1","ghost"]`, oldKey(t, q, disabled, version, "veto_approver_ids"), "marks kept, inert")
 	}
 }
 
@@ -129,18 +145,16 @@ func TestMigration0005_DownRemovesThePeople(t *testing.T) {
 }
 
 // Rows written before the migration, or saved by an older build, load with the
-// new field empty.
+// new field empty, and a stored stage that still has the old keys loads.
 func TestWorkflowDefStore_OldStoredStagesLoadWithoutVetoUsers(t *testing.T) {
 	ctx := context.Background()
 	db := newTestDB(t)
 	const id = "00000000-0000-0000-0000-0000000000c3"
 	_, err := db.Querier().Exec(ctx,
-		`INSERT INTO workflow_defs (id, name, stages_json, veto_enabled) VALUES ($1, 'old', $2::jsonb, true)`, id, legacyStages)
+		`INSERT INTO workflow_defs (id, name, stages_json) VALUES ($1, 'old', $2::jsonb)`, id, legacyStages)
 	require.NoError(t, err)
 
 	got, err := store.NewWorkflowDefStore(db).Get(ctx, id)
 	require.NoError(t, err)
-	require.True(t, got.VetoEnabled)
 	require.Empty(t, got.Stages[0].VetoUserIDs)
-	require.Equal(t, []string{"u4", "u1", "ghost"}, got.Stages[0].VetoApproverIDs)
 }

@@ -55,13 +55,6 @@ type Stage struct {
 	// (ValidateVetoUsers); at submit only those seated in the approver pool
 	// hold the veto. There is no workflow-wide switch.
 	VetoUserIDs []string `json:"veto_user_ids,omitempty"`
-
-	// VetoApproverIDs and VetoGroupIDs are the old per-stage marks. They are
-	// still read from stored JSON and written back as stored, but they gate
-	// nothing and are not accepted from the API any more; migration 0005 moved
-	// them into VetoUserIDs. Removed in the cleanup change.
-	VetoApproverIDs []string `json:"veto_approver_ids,omitempty"`
-	VetoGroupIDs    []string `json:"veto_group_ids,omitempty"`
 }
 
 // GroupUnit is a group that approves as a whole: satisfied once
@@ -144,10 +137,6 @@ type WorkflowDef struct {
 	// AuthorUserID created or last edited the definition, and may reassign
 	// its runs' approvals as the workflow author.
 	AuthorUserID string `json:"author_user_id,omitempty"`
-	// VetoEnabled is the old workflow-wide veto switch. It is still stored (own
-	// column, own call) but gates nothing: a stage's VetoUserIDs apply by
-	// themselves. Removed in the cleanup change.
-	VetoEnabled bool `json:"-"`
 }
 
 var validQuorums = map[Quorum]bool{

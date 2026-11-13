@@ -14,54 +14,7 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 )
 
-// Veto storage (steward-workflow#26). Mock: veto.test.ts "opting a workflow in".
-
-// Mock: "is off by default and set by a template admin" (the store half).
-func TestWorkflowDefStore_VetoEnabledIsOffByDefaultAndSet(t *testing.T) {
-	s := store.NewWorkflowDefStore(newTestDB(t))
-	ctx := context.Background()
-	id, err := s.Create(ctx, builder.WorkflowDef{
-		Name:   "Veto WF",
-		Stages: []builder.Stage{{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}}},
-	})
-	require.NoError(t, err)
-
-	got, err := s.Get(ctx, id)
-	require.NoError(t, err)
-	require.False(t, got.VetoEnabled)
-
-	set, err := s.SetVetoEnabled(ctx, id, true)
-	require.NoError(t, err)
-	require.True(t, set.VetoEnabled)
-
-	listed, err := s.List(ctx)
-	require.NoError(t, err)
-	require.True(t, listed[0].VetoEnabled)
-
-	// A new version keeps the opt-in; editing stages does not switch it off.
-	updated, err := s.Update(ctx, id, builder.WorkflowDef{Name: "Veto WF", Stages: got.Stages})
-	require.NoError(t, err)
-	require.True(t, updated.VetoEnabled)
-}
-
-// Mock: "marks users and group seats on a stage" (the store half): the marks
-// ride the stage JSON.
-func TestWorkflowDefStore_StageVetoMarksRoundTrip(t *testing.T) {
-	s := store.NewWorkflowDefStore(newTestDB(t))
-	ctx := context.Background()
-	id, err := s.Create(ctx, builder.WorkflowDef{
-		Name: "Marks",
-		Stages: []builder.Stage{{
-			Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"},
-			VetoApproverIDs: []string{"u1"}, VetoGroupIDs: []string{"g1"},
-		}},
-	})
-	require.NoError(t, err)
-	got, err := s.Get(ctx, id)
-	require.NoError(t, err)
-	require.Equal(t, []string{"u1"}, got.Stages[0].VetoApproverIDs)
-	require.Equal(t, []string{"g1"}, got.Stages[0].VetoGroupIDs)
-}
+// Veto storage: a stage's people ride its JSON, the mark rides the seat.
 
 // A stage's veto people ride the stage JSON (steward-workflow#64).
 func TestWorkflowDefStore_StageVetoPeopleRoundTrip(t *testing.T) {
@@ -79,7 +32,6 @@ func TestWorkflowDefStore_StageVetoPeopleRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"u1", "u2"}, got.Stages[0].VetoUserIDs)
 	require.Empty(t, got.Stages[1].VetoUserIDs)
-	require.False(t, got.VetoEnabled, "the people apply with the old switch off")
 }
 
 // Mock: "carries the marks into a run only when the workflow has opted in"
