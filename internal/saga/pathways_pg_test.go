@@ -134,6 +134,16 @@ func (c coreStatusSetter) SetVersionStatus(ctx context.Context, pvID, status, ac
 	return err
 }
 
+// SubmitVersion sets in_review through the fake core, as the real adapter does.
+func (c coreStatusSetter) SubmitVersion(ctx context.Context, pvID, actor string, _ workflowv1.ChangeType, _ string) (workflowv1.ChangeType, error) {
+	return workflowv1.ChangeType_CHANGE_TYPE_UNSPECIFIED, c.SetVersionStatus(ctx, pvID, "in_review", actor)
+}
+
+// RecordChangeTypeAgreement is not exercised on the fake core.
+func (c coreStatusSetter) RecordChangeTypeAgreement(context.Context, string, []string, string) error {
+	return nil
+}
+
 // waitTerminal blocks until the run reaches a terminal state (or fails the
 // test). Returns the terminal state.
 func (h *pathwayHarness) waitTerminal(t *testing.T, runID string) domain.RunState {

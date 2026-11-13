@@ -107,6 +107,14 @@ func (s *stubRunStore) GetRunByRunID(_ context.Context, runID string) (store.App
 	// Synthesize a run so happy-path Signal tests need not seed approval_runs.
 	return store.ApprovalRun{RunID: runID, PolicyVersionID: "pv-" + runID, Status: "in_review"}, nil
 }
+func (s *stubRunStore) MarkChangeTypeAgreed(_ context.Context, pvID string) (bool, error) {
+	if s.tracked == nil || s.tracked.PolicyVersionID != pvID || s.tracked.ChangeTypeAgreedAt != nil {
+		return false, nil
+	}
+	now := time.Now()
+	s.tracked.ChangeTypeAgreedAt = &now
+	return true, nil
+}
 func (s *stubRunStore) UpdateRunStatus(_ context.Context, _ string, status string) error {
 	s.runStatus = status
 	return nil
@@ -1757,6 +1765,25 @@ var _ = errors.Is
 type stubCoreStatus struct {
 	calls []struct{ pvID, status, actor string }
 	err   error
+
+	// submit picks as core received them, in order.
+	picks []submitPick
+	// requested is what core reports as the pending lowering after a submit.
+	requested workflowv1.ChangeType
+	// agreements recorded, and the error core answers them with.
+	agreements []agreementCall
+	agreeErr   error
+}
+
+type submitPick struct {
+	pvID, actor string
+	changeType  workflowv1.ChangeType
+	reason      string
+}
+
+type agreementCall struct {
+	pvID, actor string
+	agreedBy    []string
 }
 
 func (s *stubCoreStatus) SetVersionStatus(_ context.Context, pvID, status, actor string) error {
@@ -1764,6 +1791,23 @@ func (s *stubCoreStatus) SetVersionStatus(_ context.Context, pvID, status, actor
 		return s.err
 	}
 	s.calls = append(s.calls, struct{ pvID, status, actor string }{pvID, status, actor})
+	return nil
+}
+
+func (s *stubCoreStatus) SubmitVersion(_ context.Context, pvID, actor string, ct workflowv1.ChangeType, reason string) (workflowv1.ChangeType, error) {
+	if s.err != nil {
+		return workflowv1.ChangeType_CHANGE_TYPE_UNSPECIFIED, s.err
+	}
+	s.calls = append(s.calls, struct{ pvID, status, actor string }{pvID, "in_review", actor})
+	s.picks = append(s.picks, submitPick{pvID: pvID, actor: actor, changeType: ct, reason: reason})
+	return s.requested, nil
+}
+
+func (s *stubCoreStatus) RecordChangeTypeAgreement(_ context.Context, pvID string, agreedBy []string, actor string) error {
+	if s.agreeErr != nil {
+		return s.agreeErr
+	}
+	s.agreements = append(s.agreements, agreementCall{pvID: pvID, actor: actor, agreedBy: agreedBy})
 	return nil
 }
 

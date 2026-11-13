@@ -48,7 +48,7 @@ pending group seat.
 | RPC | What it does |
 | --- | --- |
 | `ResolveWorkflow` | The workflow a policy would be submitted under: its override, else its home category's default. Empty: not submittable. |
-| `Submit` | Starts an approval run for a policy version, on the definition version current at submit. |
+| `Submit` | Starts an approval run for a policy version, on the definition version current at submit. Optional `change_type` and `change_type_reason` pass the author's pick to core with the in_review write (see Change type below). |
 | `Signal` | Approve, reject (both need a comment that is not blank), request changes, withdraw or retire. Applies to the version's current run whatever `run_id` says; a run that has ended refuses it with `FailedPrecondition`. Request changes keeps the caller's seat open and changes no status; the comment is kept in the seat's history. Withdraw returns the version to draft in core. |
 | `GetStatus` | The current run's status, stage names, seats and group tallies. |
 | `ListPendingTasks` | The stages awaiting the approver. |
@@ -78,6 +78,18 @@ stage is due at the end of the Nth working day after the day it is entered, so a
 calendar never moves a run in flight. Zero or unset uses the service-wide SLA. Submit returns
 `Unavailable` when core cannot be reached to read the calendar; if core refuses the read or has no
 calendar, the run is submitted without a pin and counts calendar days; `reject_on_sla_breach` rejects instead of escalating when it passes.
+
+## Change type
+
+Core classifies each version as Major, Minor or Fix. `Submit` passes the author's pick (`change_type`,
+with `change_type_reason`) to core; unset leaves core's suggestion standing. A pick at or above the
+suggestion applies at once. A pick below it needs a reason, and core holds it as a requested lowering
+until workflow records agreement: the run keeps the requested type, and when the first stage's quorum
+is met (by `Signal` or `BulkDecide`) workflow calls core's `RecordChangeTypeAgreement` once, naming the
+users whose approvals made the quorum. Later stages do not take part. A refusal from core (for example a
+pick below the suggestion with no reason) comes back to the caller with core's code and message; a
+version whose lowering is no longer pending in core does not block the approver. The audit events are
+`workflow.change_type.requested` (at submit) and `workflow.change_type.agreed`.
 
 ## Events
 

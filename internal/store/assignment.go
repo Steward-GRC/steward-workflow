@@ -84,18 +84,27 @@ type ApprovalRun struct {
 	// first, so GetStatus can resolve a stage's per-category approvers for a
 	// stage not yet entered.
 	AncestorCategoryIDs []string
+	// RequestedChangeType is the lowering ("major", "minor" or "fix") the
+	// author picked below core's suggestion and core holds until the approvers
+	// agree; empty when nothing is pending (steward-workflow#10).
+	RequestedChangeType string
+	// ChangeTypeAgreedAt is when the agreement was recorded in core; nil until
+	// then.
+	ChangeTypeAgreedAt *time.Time
 }
 
 // activeRunStatuses are the statuses that hold a version's one active slot.
 const activeRunStatuses = `('in_review', 'scheduled')`
 
 const runColumns = `policy_version_id, run_id, workflow_def_id, workflow_version, status, started_at, resolved_at,
-	COALESCE(home_category_id, ''), COALESCE(submitted_by, ''), COALESCE(submitted_by_actor_id, ''), COALESCE(policy_id, ''), ancestor_category_ids`
+	COALESCE(home_category_id, ''), COALESCE(submitted_by, ''), COALESCE(submitted_by_actor_id, ''), COALESCE(policy_id, ''), ancestor_category_ids,
+	requested_change_type, change_type_agreed_at`
 
 func scanRun(row pgx.Row) (ApprovalRun, error) {
 	var r ApprovalRun
 	err := row.Scan(&r.PolicyVersionID, &r.RunID, &r.WorkflowDefID, &r.WorkflowVersion, &r.Status, &r.StartedAt, &r.ResolvedAt,
-		&r.HomeCategoryID, &r.SubmittedBy, &r.SubmittedByActorID, &r.PolicyID, &r.AncestorCategoryIDs)
+		&r.HomeCategoryID, &r.SubmittedBy, &r.SubmittedByActorID, &r.PolicyID, &r.AncestorCategoryIDs,
+		&r.RequestedChangeType, &r.ChangeTypeAgreedAt)
 	return r, err
 }
 
@@ -117,15 +126,32 @@ func (s *AssignmentStore) TrackRun(ctx context.Context, r ApprovalRun) error {
 	_, err := s.db.Querier().Exec(ctx,
 		`INSERT INTO approval_runs (policy_version_id, run_id, workflow_def_id, workflow_version, status,
 		                            home_category_id, submitted_by, submitted_by_actor_id, policy_id,
-		                            ancestor_category_ids)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		                            ancestor_category_ids, requested_change_type)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		r.PolicyVersionID, r.RunID, r.WorkflowDefID, r.WorkflowVersion, status,
-		nullableText(r.HomeCategoryID), nullableText(r.SubmittedBy), actor, nullableText(r.PolicyID), ancestors,
+		nullableText(r.HomeCategoryID), nullableText(r.SubmittedBy), actor, nullableText(r.PolicyID), ancestors, r.RequestedChangeType,
 	)
 	if err != nil {
 		return fmt.Errorf("track run %q: %w", r.RunID, err)
 	}
 	return nil
+}
+
+// MarkChangeTypeAgreed claims the version's change type agreement: it reports
+// true only for the caller that moved the current run from a pending lowering
+// to agreed, so the agreement is written to core once. A run with no pending
+// lowering, or one already agreed, reports false.
+func (s *AssignmentStore) MarkChangeTypeAgreed(ctx context.Context, policyVersionID string) (bool, error) {
+	tag, err := s.db.Querier().Exec(ctx,
+		`UPDATE approval_runs SET change_type_agreed_at = now()
+		  WHERE policy_version_id = $1 AND status IN `+activeRunStatuses+`
+		    AND requested_change_type <> '' AND change_type_agreed_at IS NULL`,
+		policyVersionID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("mark change type agreed for %q: %w", policyVersionID, err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // AbortActiveRuns marks the version's active runs aborted, keeping them as the

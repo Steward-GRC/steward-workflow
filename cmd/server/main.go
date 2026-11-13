@@ -286,12 +286,33 @@ func (r runRefs) PolicyVersionIDForRun(ctx context.Context, runID string) (strin
 	return run.PolicyVersionID, nil
 }
 
-// coreStatus writes a withdrawn version back to draft in core.
+// coreStatus writes the version's status and change type to core.
 type coreStatus struct{ c corev1.PolicyServiceClient }
 
 func (a coreStatus) SetVersionStatus(ctx context.Context, policyVersionID, status, actorUserID string) error {
 	_, err := a.c.SetVersionStatus(ctx, &corev1.SetVersionStatusRequest{
 		PolicyVersionId: policyVersionID, Status: status, ActorUserId: actorUserID,
+	})
+	return err
+}
+
+// SubmitVersion sets in_review with the author's change type pick and returns
+// the lowering core holds for the approvers' agreement.
+func (a coreStatus) SubmitVersion(ctx context.Context, policyVersionID, actorUserID string, changeType workflowv1.ChangeType, reason string) (workflowv1.ChangeType, error) {
+	resp, err := a.c.SetVersionStatus(ctx, &corev1.SetVersionStatusRequest{
+		PolicyVersionId: policyVersionID, Status: "in_review", ActorUserId: actorUserID,
+		ChangeType: corev1.ChangeType(changeType), ChangeTypeReason: reason,
+	})
+	if err != nil {
+		return workflowv1.ChangeType_CHANGE_TYPE_UNSPECIFIED, err
+	}
+	return workflowv1.ChangeType(resp.GetVersion().GetRequestedChangeType()), nil
+}
+
+// RecordChangeTypeAgreement writes who agreed to the pending lowering.
+func (a coreStatus) RecordChangeTypeAgreement(ctx context.Context, policyVersionID string, agreedByUserIDs []string, actorUserID string) error {
+	_, err := a.c.RecordChangeTypeAgreement(ctx, &corev1.RecordChangeTypeAgreementRequest{
+		PolicyVersionId: policyVersionID, AgreedByUserIds: agreedByUserIDs, ActorUserId: actorUserID,
 	})
 	return err
 }

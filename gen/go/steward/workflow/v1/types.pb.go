@@ -154,6 +154,60 @@ func (SignalType) EnumDescriptor() ([]byte, []int) {
 	return file_steward_workflow_v1_types_proto_rawDescGZIP(), []int{1}
 }
 
+// ChangeType is how big a change to a policy version is. The values match
+// core's ChangeType, so a pick passes through unchanged.
+type ChangeType int32
+
+const (
+	ChangeType_CHANGE_TYPE_UNSPECIFIED ChangeType = 0
+	ChangeType_CHANGE_TYPE_MAJOR       ChangeType = 1
+	ChangeType_CHANGE_TYPE_MINOR       ChangeType = 2
+	ChangeType_CHANGE_TYPE_FIX         ChangeType = 3
+)
+
+// Enum value maps for ChangeType.
+var (
+	ChangeType_name = map[int32]string{
+		0: "CHANGE_TYPE_UNSPECIFIED",
+		1: "CHANGE_TYPE_MAJOR",
+		2: "CHANGE_TYPE_MINOR",
+		3: "CHANGE_TYPE_FIX",
+	}
+	ChangeType_value = map[string]int32{
+		"CHANGE_TYPE_UNSPECIFIED": 0,
+		"CHANGE_TYPE_MAJOR":       1,
+		"CHANGE_TYPE_MINOR":       2,
+		"CHANGE_TYPE_FIX":         3,
+	}
+)
+
+func (x ChangeType) Enum() *ChangeType {
+	p := new(ChangeType)
+	*p = x
+	return p
+}
+
+func (x ChangeType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChangeType) Descriptor() protoreflect.EnumDescriptor {
+	return file_steward_workflow_v1_types_proto_enumTypes[2].Descriptor()
+}
+
+func (ChangeType) Type() protoreflect.EnumType {
+	return &file_steward_workflow_v1_types_proto_enumTypes[2]
+}
+
+func (x ChangeType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChangeType.Descriptor instead.
+func (ChangeType) EnumDescriptor() ([]byte, []int) {
+	return file_steward_workflow_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
 var File_steward_workflow_v1_types_proto protoreflect.FileDescriptor
 
 const file_steward_workflow_v1_types_proto_rawDesc = "" +
@@ -177,7 +231,13 @@ const file_steward_workflow_v1_types_proto_rawDesc = "" +
 	"\x12SIGNAL_TYPE_REJECT\x10\x02\x12\x1f\n" +
 	"\x1bSIGNAL_TYPE_REQUEST_CHANGES\x10\x03\x12\x18\n" +
 	"\x14SIGNAL_TYPE_WITHDRAW\x10\x04\x12\x16\n" +
-	"\x12SIGNAL_TYPE_RETIRE\x10\x05BOZMgithub.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1b\x06proto3"
+	"\x12SIGNAL_TYPE_RETIRE\x10\x05*l\n" +
+	"\n" +
+	"ChangeType\x12\x1b\n" +
+	"\x17CHANGE_TYPE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11CHANGE_TYPE_MAJOR\x10\x01\x12\x15\n" +
+	"\x11CHANGE_TYPE_MINOR\x10\x02\x12\x13\n" +
+	"\x0fCHANGE_TYPE_FIX\x10\x03BOZMgithub.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_steward_workflow_v1_types_proto_rawDescOnce sync.Once
@@ -191,10 +251,11 @@ func file_steward_workflow_v1_types_proto_rawDescGZIP() []byte {
 	return file_steward_workflow_v1_types_proto_rawDescData
 }
 
-var file_steward_workflow_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_steward_workflow_v1_types_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_steward_workflow_v1_types_proto_goTypes = []any{
 	(ApprovalStatus)(0), // 0: steward.workflow.v1.ApprovalStatus
 	(SignalType)(0),     // 1: steward.workflow.v1.SignalType
+	(ChangeType)(0),     // 2: steward.workflow.v1.ChangeType
 }
 var file_steward_workflow_v1_types_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -214,7 +275,7 @@ func file_steward_workflow_v1_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_steward_workflow_v1_types_proto_rawDesc), len(file_steward_workflow_v1_types_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

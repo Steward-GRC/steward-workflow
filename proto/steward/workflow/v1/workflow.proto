@@ -104,6 +104,16 @@ message SubmitRequest {
   string submitted_by = 4;
   // The policy's categories from its home category (index 0) to the root.
   repeated string ancestor_category_ids = 5;
+  // The author's pick of the change type, passed to core with the submit.
+  // Unset leaves core's suggestion standing. A pick at or above the suggestion
+  // applies at once; a pick below it needs change_type_reason and waits for
+  // the first stage's quorum to agree before core applies it. Core refuses a
+  // pick below the suggestion without a reason with INVALID_ARGUMENT, and the
+  // version stays a draft.
+  ChangeType change_type = 6;
+  // Why the change is smaller than core suggested; read only for a pick below
+  // the suggestion.
+  string change_type_reason = 7;
 }
 
 message SubmitResponse {

@@ -453,6 +453,24 @@ func (noopAudit) EmitActorAttrs(context.Context, string, string, string, string,
 type recordingCoreStatus struct {
 	lastStatus string
 	calls      int
+	// requested is the lowering core reports back from a submit.
+	requested workflowv1.ChangeType
+	// agreements counts the change type agreements recorded, and agreedBy keeps
+	// the users of the last one.
+	agreements int
+	agreedBy   []string
+}
+
+func (c *recordingCoreStatus) SubmitVersion(_ context.Context, _, _ string, _ workflowv1.ChangeType, _ string) (workflowv1.ChangeType, error) {
+	c.calls++
+	c.lastStatus = "in_review"
+	return c.requested, nil
+}
+
+func (c *recordingCoreStatus) RecordChangeTypeAgreement(_ context.Context, _ string, agreedBy []string, _ string) error {
+	c.agreements++
+	c.agreedBy = agreedBy
+	return nil
 }
 
 func (c *recordingCoreStatus) SetVersionStatus(_ context.Context, _, status, _ string) error {
