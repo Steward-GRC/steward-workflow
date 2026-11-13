@@ -27,6 +27,7 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/errcodes"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 	"github.com/Steward-GRC/steward-workflow/internal/tally"
+	"github.com/Steward-GRC/steward-workflow/internal/workcal"
 )
 
 // PendingTaskInfo is one open saga task, in the engine-neutral shape the
@@ -73,6 +74,14 @@ type SagaClient interface {
 	// alone.
 	CancelRun(ctx context.Context, runID string) error
 	CancelActiveRunsForPolicyVersion(ctx context.Context, policyVersionID string) (int, error)
+	// RunInputs returns the inputs a run started with, which hold its pinned
+	// work calendar.
+	RunInputs(ctx context.Context, runID string) (map[string]any, error)
+}
+
+// WorkCalendarSource reads the site work calendar from core.
+type WorkCalendarSource interface {
+	WorkCalendar(ctx context.Context) (workcal.Calendar, error)
 }
 
 // AuditEmitter emits audit events. Emit is for events with no person
@@ -146,6 +155,7 @@ type WorkflowServer struct {
 	actorExtractor ActorExtractor
 	admins         AdminChecker
 	coreStatus     CoreStatusSetter
+	workCalendar   WorkCalendarSource
 	runNotifier    runNotifier
 	compileOpts    builder.CompileOptions
 	log            log.Logger
@@ -162,6 +172,9 @@ type WorkflowServerOpts struct {
 	ActorExtractor ActorExtractor
 	Admins         AdminChecker
 	CoreStatus     CoreStatusSetter
+	// WorkCalendar is read at submit and pinned on a run whose stages count
+	// days; nil pins nothing and every deadline counts calendar days.
+	WorkCalendar WorkCalendarSource
 	// RunNotifier sends the workflow-started and workflow-denied events; nil
 	// sends none.
 	RunNotifier runNotifier
@@ -188,10 +201,81 @@ func NewWorkflowServer(o WorkflowServerOpts) *WorkflowServer {
 		actorExtractor: o.ActorExtractor,
 		admins:         o.Admins,
 		coreStatus:     o.CoreStatus,
+		workCalendar:   o.WorkCalendar,
 		runNotifier:    o.RunNotifier,
 		compileOpts:    o.CompileOpts,
 		log:            o.Logger,
 	}
+}
+
+// pinWorkCalendar reads the site calendar and pins it in the run inputs when a
+// stage counts days. A core that is down (Unavailable and the like) fails the
+// submit with Unavailable: the caller retries, and the run is never judged
+// against a calendar nobody chose. Core is needed again straight after for the
+// in_review write, so an outage costs nothing extra. A calendar core cannot or
+// will not give (refused caller, a core older than the field, data that does
+// not validate) is a settings fault, not an outage: the run is submitted
+// without a pin and counts calendar days, the behaviour before calendars, with
+// the fault logged as an error.
+func (s *WorkflowServer) pinWorkCalendar(ctx context.Context, lg log.Logger, wd builder.WorkflowDef, runInputs map[string]any) error {
+	if s.workCalendar == nil {
+		return nil
+	}
+	counts := false
+	for _, st := range wd.Stages {
+		if st.SLADays > 0 {
+			counts = true
+			break
+		}
+	}
+	if !counts {
+		lg.Debug("submit: no stage counts days, not reading the work calendar")
+		return nil
+	}
+	started := time.Now()
+	cal, err := s.workCalendar.WorkCalendar(ctx)
+	if err != nil {
+		switch status.Code(err) {
+		case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted:
+			lg.Error(err, "submit: core is unavailable, refusing the submit so no run is pinned to a guessed calendar",
+				log.F("duration_ms", time.Since(started).Milliseconds()))
+			return status.Error(codes.Unavailable, "the site work calendar is unavailable; try the submit again shortly")
+		case codes.Canceled:
+			return status.FromContextError(ctx.Err()).Err()
+		}
+		lg.Error(err, "submit: the work calendar is not usable, counting calendar days for this run",
+			log.F("duration_ms", time.Since(started).Milliseconds()))
+		return nil
+	}
+	runInputs[workcal.PinKey] = cal.Pin()
+	lg.Debug("submit: pinned the work calendar", log.F("timezone", cal.Pin()["timezone"]),
+		log.F("holidays", len(cal.Holidays)), log.F("duration_ms", time.Since(started).Milliseconds()))
+	return nil
+}
+
+// runCalendar returns the work calendar pinned on the version's run, or nil
+// (calendar days) when it has none or it cannot be read.
+func (s *WorkflowServer) runCalendar(ctx context.Context, pvID string) *workcal.Calendar {
+	lg := s.log.Ctx(ctx)
+	run, err := s.runStore.GetRun(ctx, pvID)
+	if err != nil {
+		lg.Error(err, "reassign: cannot find the run for its pinned calendar, counting calendar days", log.F("policy_version_id", pvID))
+		return nil
+	}
+	inputs, err := s.sagaClient.RunInputs(ctx, run.RunID)
+	if err != nil {
+		lg.Error(err, "reassign: cannot read the run's inputs, counting calendar days", log.F("policy_version_id", pvID), log.F("run_id", run.RunID))
+		return nil
+	}
+	cal, err := workcal.FromPin(inputs[workcal.PinKey])
+	switch {
+	case errors.Is(err, workcal.ErrNoPin):
+		return nil
+	case err != nil:
+		lg.Error(err, "reassign: the run's pinned calendar is unusable, counting calendar days", log.F("run_id", run.RunID))
+		return nil
+	}
+	return &cal
 }
 
 // internalErr codes an unexpected failure (6000); its cause is only logged.
@@ -267,6 +351,12 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 			return nil, status.Errorf(codes.FailedPrecondition, "stage %d: quorum_n=%d exceeds pool size %d", i, stage.QuorumN, votes)
 		}
 		runInputs[fmt.Sprintf("approvers_s%d", i)] = pool
+	}
+
+	// Pin the site work calendar now, before anything is cancelled or written, so
+	// a later edit to it never moves a run in flight.
+	if err := s.pinWorkCalendar(ctx, lg, wd, runInputs); err != nil {
+		return nil, err
 	}
 
 	// A resubmit cancels the version's earlier runs and keeps their records,
@@ -1054,7 +1144,7 @@ func (s *WorkflowServer) SwapAssignee(ctx context.Context, req *workflowv1.SwapA
 			"stage", stageStr, "current_user_id", req.GetCurrentUserId(), "state", old.State)
 	}
 
-	slaDeadline, reminder := s.compileOpts.StageSLA(stage, time.Now().UTC())
+	slaDeadline, reminder := s.compileOpts.StageSLA(stage, time.Now().UTC(), s.runCalendar(ctx, req.GetPolicyVersionId()))
 	newRow, err := s.assignments.Swap(ctx, store.SwapInput{
 		OldAssignmentID:  old.ID,
 		NewUserID:        req.GetNewUserId(),

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	log "github.com/Bugs5382/go-log"
+	"github.com/Bugs5382/go-saga-orchestration/clock"
 	"github.com/Bugs5382/go-saga-orchestration/domain"
 	"github.com/Bugs5382/go-saga-orchestration/engine"
 	"github.com/Bugs5382/go-saga-orchestration/engine/verbs"
@@ -59,6 +60,11 @@ func Build(st store.Store, policyClient worker.PolicyServiceClient, resolver sta
 		return nil, fmt.Errorf("saga.New: %w", err)
 	}
 	registerPolicyActionVerb(sc, policyClient, resolver, assigner, lg)
+	// The stock manual_approval verb sets a static due_in; this one counts the
+	// stage's working days from the run's pinned calendar when the step runs.
+	clk := clock.SystemClock{}
+	sc.RegisterVerb(string(domain.StepTypeManualApproval), "human_interaction",
+		NewWorkingDayApprovalVerb(verbs.ManualApprovalVerb{S: sc.Store(), Clock: clk}, clk, lg))
 	return sc, nil
 }
 
@@ -127,6 +133,20 @@ func runValue(run domain.SagaRun, key string) string {
 // version.
 func (c *EmbeddedSagaClient) PublishWorkflow(_ context.Context, def domain.WorkflowDefinition) error {
 	return c.sc.Register(def)
+}
+
+// RunInputs returns the inputs a run started with, which is where its pinned
+// work calendar lives.
+func (c *EmbeddedSagaClient) RunInputs(ctx context.Context, runID string) (map[string]any, error) {
+	rid, err := uuid.Parse(runID)
+	if err != nil {
+		return nil, fmt.Errorf("parse run id %q: %w", runID, err)
+	}
+	run, err := c.sc.Get(ctx, rid)
+	if err != nil {
+		return nil, fmt.Errorf("get run %s: %w", runID, err)
+	}
+	return run.Inputs, nil
 }
 
 // StartRun starts a run and returns its id.
