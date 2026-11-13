@@ -62,6 +62,25 @@ func TestLoadRejectsBadHours(t *testing.T) {
 	require.ErrorContains(t, err, "STAGE_REMINDER_HOURS")
 }
 
+func TestLoadStageNoticeSweepMinutes(t *testing.T) {
+	c, err := Load(env(required()))
+	require.NoError(t, err)
+	require.Equal(t, 15, c.StageNoticeSweepMinutes, "15 minutes when unset")
+
+	m := required()
+	m["STAGE_NOTICE_SWEEP_MINUTES"] = "5"
+	c, err = Load(env(m))
+	require.NoError(t, err)
+	require.Equal(t, 5, c.StageNoticeSweepMinutes)
+
+	for _, bad := range []string{"soon", "0", "-3", "1.5"} {
+		m = required()
+		m["STAGE_NOTICE_SWEEP_MINUTES"] = bad
+		_, err = Load(env(m))
+		require.ErrorContains(t, err, "STAGE_NOTICE_SWEEP_MINUTES", bad)
+	}
+}
+
 func TestLoadReadsEveryWorkloadSetting(t *testing.T) {
 	m := required()
 	for k, v := range map[string]string{

@@ -38,6 +38,9 @@ type AssignmentRow struct {
 	// Veto marks a seat whose reject ends the stage at once. Only seats of a
 	// run whose workflow had opted in carry it.
 	Veto bool
+	// RemindersSent is the last overdue reminder number published for the seat
+	// (steward-workflow#76); 0 before the first.
+	RemindersSent int
 }
 
 // HistoryEntry is one assignment_history row.
@@ -106,14 +109,14 @@ type Assignments struct{ db *postgres.DB }
 func NewAssignments(db *postgres.DB) *Assignments { return &Assignments{db: db} }
 
 const seatColumns = `id, policy_version_id, stage_index, user_id, group_id, assigned_at, sla_deadline_at, reminder_at,
-	state, decided_at, decided_comment, bulk_batch_id, paused_remaining_sla_seconds, paused_remaining_reminder_seconds, veto`
+	state, decided_at, decided_comment, bulk_batch_id, paused_remaining_sla_seconds, paused_remaining_reminder_seconds, veto, reminders_sent`
 
 func scanSeat(row pgx.Row) (AssignmentRow, error) {
 	var r AssignmentRow
 	err := row.Scan(&r.ID, &r.PolicyVersionID, &r.StageIndex, &r.UserID, &r.GroupID,
 		&r.AssignedAt, &r.SLADeadlineAt, &r.ReminderAt,
 		&r.State, &r.DecidedAt, &r.DecidedComment, &r.BulkBatchID,
-		&r.PausedRemainingSLASec, &r.PausedRemainingReminderS, &r.Veto)
+		&r.PausedRemainingSLASec, &r.PausedRemainingReminderS, &r.Veto, &r.RemindersSent)
 	return r, err
 }
 
@@ -155,6 +158,7 @@ func (a *Assignments) CreateAssignment(ctx context.Context, row AssignmentRow, a
 			   reminder_at = $8,
 			   state = $9,
 			   veto = $10,
+			   reminders_sent = 0,
 			   decided_at = NULL,
 			   decided_comment = NULL,
 			   bulk_batch_id = NULL

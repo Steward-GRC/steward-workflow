@@ -46,7 +46,10 @@ type Config struct {
 	StageSLAHours int
 	// StageReminderHours is when its reminder falls.
 	StageReminderHours int
-	TLS                TLS
+	// StageNoticeSweepMinutes is how often the sweeper looks for overdue
+	// stages to remind and escalate (steward-workflow#76).
+	StageNoticeSweepMinutes int
+	TLS                     TLS
 	// WorkloadAuth verifies the callers' workload tokens. It is set only
 	// while WorkloadAuthEnabled, which is false only with
 	// WORKLOAD_AUTH=disabled.
@@ -105,6 +108,15 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	c.StageSLAHours = hours("STAGE_SLA_HOURS", 72)
 	c.StageReminderHours = hours("STAGE_REMINDER_HOURS", 48)
+	c.StageNoticeSweepMinutes = 15
+	if v := getenv("STAGE_NOTICE_SWEEP_MINUTES"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			errs = append(errs, errors.New("STAGE_NOTICE_SWEEP_MINUTES must be a whole number of minutes, 1 or more"))
+		} else {
+			c.StageNoticeSweepMinutes = n
+		}
+	}
 	tlsSet := c.TLS.CertFile != "" || c.TLS.KeyFile != "" || c.TLS.ClientCAFile != ""
 	if tlsSet && (c.TLS.CertFile == "" || c.TLS.KeyFile == "" || c.TLS.ClientCAFile == "") {
 		errs = append(errs, errors.New("GRPC_TLS_CERT_FILE, GRPC_TLS_KEY_FILE and GRPC_TLS_CLIENT_CA_FILE are set together"))

@@ -46,6 +46,7 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/server"
 	"github.com/Steward-GRC/steward-workflow/internal/sitecal"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
+	"github.com/Steward-GRC/steward-workflow/internal/sweeper"
 	"github.com/Steward-GRC/steward-workflow/internal/worker"
 )
 
@@ -140,9 +141,10 @@ func run(ctx context.Context, logger log.Logger) error {
 	runStore := store.NewAssignmentStore(db)
 	assignments := store.NewAssignments(db)
 
+	accessResolver := access.NewResolver(directory, access.NewCoreAdapter(corePolicies, coreCategories))
 	decisions := saga.NewDecisionResolver(runStore, defStore, assignments)
 	assigner := saga.NewStageAssigner(defStore, assignments, compileOpts).
-		WithAccessFilter(access.NewResolver(directory, access.NewCoreAdapter(corePolicies, coreCategories))).
+		WithAccessFilter(accessResolver).
 		WithApprovalNotifier(saga.NewApprovalEmitter(jobsPub)).
 		WithStageEntries(assignments).
 		WithLogger(logger)
@@ -182,6 +184,17 @@ func run(ctx context.Context, logger log.Logger) error {
 	go func() {
 		if err := saga.RunTimer(ctx, engine, sagaStore.Pool()); err != nil && ctx.Err() == nil {
 			logger.Error(err, "saga timer stopped")
+		}
+	}()
+	// Reminders and escalations for overdue stages. Only one replica sweeps.
+	noticeSweeper := sweeper.New(sweeper.Deps{
+		Store: assignments, Defs: defStore, Runs: saga.NewEmbedded(engine), Owners: accessResolver,
+		Publisher: jobsPub, Audit: auditAdapter, Logger: logger,
+	})
+	go func() {
+		interval := time.Duration(cfg.StageNoticeSweepMinutes) * time.Minute
+		if err := sweeper.Run(ctx, sagaStore.Pool(), noticeSweeper, interval, logger); err != nil && ctx.Err() == nil {
+			logger.Error(err, "stage notice sweeper stopped")
 		}
 	}()
 	identityHealth := healthpb.NewHealthClient(identityConn)
