@@ -8,6 +8,8 @@ package builder
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Steward-GRC/steward-workflow/internal/workcal"
 )
 
 // Quorum controls how many votes a stage needs before it advances.
@@ -55,6 +57,11 @@ type Stage struct {
 	// (ValidateVetoUsers); at submit only those seated in the approver pool
 	// hold the veto. There is no workflow-wide switch.
 	VetoUserIDs []string `json:"veto_user_ids,omitempty"`
+
+	// RemindEveryDays and EscalateAfterDays are whole working days counted past
+	// the due date; zero is off (steward-workflow#72). See ValidateOverdue.
+	RemindEveryDays   int `json:"remind_every_days,omitempty"`
+	EscalateAfterDays int `json:"escalate_after_days,omitempty"`
 }
 
 // GroupUnit is a group that approves as a whole: satisfied once
@@ -121,6 +128,36 @@ func (s Stage) ValidateVetoUsers() error {
 	}
 	if len(strangers) > 0 {
 		return fmt.Errorf("stage %q: a veto person must be one of the stage's approvers (%s)", s.Name, strings.Join(strangers, ", "))
+	}
+	return nil
+}
+
+// ValidateOverdue checks the save-time rule for a stage's overdue settings.
+// RemindEveryDays and EscalateAfterDays are whole working days from 0 (off) to
+// workcal.MaxWorkingDays. Both count from the due date, so they need SLADays,
+// and a stage that rejects at its due date (RejectOnSLABreach) is never
+// overdue, so a setting that could not fire is refused rather than stored.
+func (s Stage) ValidateOverdue() error {
+	check := func(name string, v int) error {
+		if v < 0 || v > workcal.MaxWorkingDays {
+			return fmt.Errorf("stage %q: %s must be from 0 to %d working days, got %d", s.Name, name, workcal.MaxWorkingDays, v)
+		}
+		return nil
+	}
+	if err := check("remind_every_days", s.RemindEveryDays); err != nil {
+		return err
+	}
+	if err := check("escalate_after_days", s.EscalateAfterDays); err != nil {
+		return err
+	}
+	if s.RemindEveryDays == 0 && s.EscalateAfterDays == 0 {
+		return nil
+	}
+	if s.SLADays <= 0 {
+		return fmt.Errorf("stage %q: reminders and escalation count from the due date, so the stage needs a due date (sla_days)", s.Name)
+	}
+	if s.RejectOnSLABreach {
+		return fmt.Errorf("stage %q: the stage rejects at its due date, so it is never overdue and reminders or escalation would never fire", s.Name)
 	}
 	return nil
 }

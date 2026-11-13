@@ -58,3 +58,13 @@ func TestSetWorkflowVetoEnabledIsRemovedFromTheService(t *testing.T) {
 		require.NotEqual(t, "SetWorkflowVetoEnabled", m.MethodName)
 	}
 }
+
+// The overdue settings are additive: 13 and 14 are new numbers, nothing was
+// renumbered (steward-workflow#72).
+func TestStageOverdueFieldNumbers(t *testing.T) {
+	stage := (&workflowv1.WorkflowStage{}).ProtoReflect().Descriptor()
+	require.EqualValues(t, 13, stage.Fields().ByName("remind_every_days").Number())
+	require.EqualValues(t, 14, stage.Fields().ByName("escalate_after_days").Number())
+	require.EqualValues(t, 5, stage.Fields().ByName("sla_days").Number())
+	require.EqualValues(t, 6, stage.Fields().ByName("reject_on_sla_breach").Number())
+}

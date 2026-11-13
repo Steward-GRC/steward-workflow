@@ -61,6 +61,9 @@ func (s *WorkflowServer) CreateWorkflowDef(ctx context.Context, req *workflowv1.
 	if err := validateVetoUsers(ctx, s.log, stages); err != nil {
 		return nil, err
 	}
+	if err := validateOverdue(ctx, s.log, stages); err != nil {
+		return nil, err
+	}
 	ds := s.mustDefStore()
 	id, err := ds.Create(ctx, builder.WorkflowDef{
 		Name:         req.GetName(),
@@ -95,6 +98,9 @@ func (s *WorkflowServer) UpdateWorkflowDef(ctx context.Context, req *workflowv1.
 	if err := validateVetoUsers(ctx, s.log, stages); err != nil {
 		return nil, err
 	}
+	if err := validateOverdue(ctx, s.log, stages); err != nil {
+		return nil, err
+	}
 	updated, err := s.mustDefStore().Update(ctx, req.GetId(), builder.WorkflowDef{
 		Name:         req.GetName(),
 		Description:  req.GetDescription(),
@@ -119,6 +125,22 @@ func (s *WorkflowServer) ArchiveWorkflowDef(ctx context.Context, req *workflowv1
 	}
 	s.auditEmit.EmitActor(ctx, "workflow_def.archived", "id:"+req.GetId(), req.GetActorUserId())
 	return &workflowv1.ArchiveWorkflowDefResponse{}, nil
+}
+
+// validateOverdue refuses a save in which a stage sets reminders or escalation
+// that could never fire (steward-workflow#72).
+func validateOverdue(ctx context.Context, lg log.Logger, stages []builder.Stage) error {
+	for i, st := range stages {
+		if err := st.ValidateOverdue(); err != nil {
+			lg.Ctx(ctx).Warn("workflow def save refused: overdue settings are not usable",
+				log.F("stage_index", i), log.F("remind_every_days", st.RemindEveryDays),
+				log.F("escalate_after_days", st.EscalateAfterDays), log.F("sla_days", st.SLADays),
+				log.F("reject_on_sla_breach", st.RejectOnSLABreach))
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
+	lg.Ctx(ctx).Debug("workflow def save: overdue settings accepted", log.F("stages", len(stages)))
+	return nil
 }
 
 // validateVetoUsers refuses a save in which a stage names a veto person who is
@@ -186,6 +208,8 @@ func stageToProto(s builder.Stage) *workflowv1.WorkflowStage {
 		RejectOnSlaBreach:   s.RejectOnSLABreach,
 		PinnedLast:          s.PinnedLast,
 		VetoUserIds:         s.VetoUserIDs,
+		RemindEveryDays:     toInt32(s.RemindEveryDays),
+		EscalateAfterDays:   toInt32(s.EscalateAfterDays),
 	}
 }
 
@@ -216,6 +240,8 @@ func stageFromProto(ps *workflowv1.WorkflowStage) builder.Stage {
 		RejectOnSLABreach:   ps.GetRejectOnSlaBreach(),
 		PinnedLast:          ps.GetPinnedLast(),
 		VetoUserIDs:         ps.GetVetoUserIds(),
+		RemindEveryDays:     int(ps.GetRemindEveryDays()),
+		EscalateAfterDays:   int(ps.GetEscalateAfterDays()),
 	}
 }
 
