@@ -145,9 +145,12 @@ type WorkflowStage struct {
 	ApproverIds []string `protobuf:"bytes,3,rep,name=approver_ids,json=approverIds,proto3" json:"approver_ids,omitempty"`
 	// "one", "majority" or "all".
 	Quorum string `protobuf:"bytes,4,opt,name=quorum,proto3" json:"quorum,omitempty"`
-	// Zero means the service-wide SLA.
-	SlaDays           int32 `protobuf:"varint,5,opt,name=sla_days,json=slaDays,proto3" json:"sla_days,omitempty"`
-	RejectOnSlaBreach bool  `protobuf:"varint,6,opt,name=reject_on_sla_breach,json=rejectOnSlaBreach,proto3" json:"reject_on_sla_breach,omitempty"`
+	// Whole working days on the site calendar, counted from stage entry to the
+	// end of the Nth working day. Zero means the service-wide SLA.
+	SlaDays int32 `protobuf:"varint,5,opt,name=sla_days,json=slaDays,proto3" json:"sla_days,omitempty"`
+	// Rejects the version when the stage is still undecided at its due date. A
+	// time limit never approves.
+	RejectOnSlaBreach bool `protobuf:"varint,6,opt,name=reject_on_sla_breach,json=rejectOnSlaBreach,proto3" json:"reject_on_sla_breach,omitempty"`
 	// Editor ordering only.
 	PinnedLast bool `protobuf:"varint,7,opt,name=pinned_last,json=pinnedLast,proto3" json:"pinned_last,omitempty"`
 	// Individual approvers by category id. A policy uses the entry for its home
@@ -162,9 +165,21 @@ type WorkflowStage struct {
 	// InvalidArgument. At submit a named person who is not seated in the stage's
 	// approver pool holds no veto, without an error. Site admin, root and owners
 	// who join only to make up a quorum never hold one.
-	VetoUserIds   []string `protobuf:"bytes,12,rep,name=veto_user_ids,json=vetoUserIds,proto3" json:"veto_user_ids,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	VetoUserIds []string `protobuf:"bytes,12,rep,name=veto_user_ids,json=vetoUserIds,proto3" json:"veto_user_ids,omitempty"`
+	// Whole working days on the run's site calendar, counted past the due date
+	// (sla_days). Zero means off. Both need sla_days above zero and cannot be set
+	// on a stage that has reject_on_sla_breach, which rejects at the due date, so
+	// such a save is refused with InvalidArgument. Each is 0 to 365.
+	//
+	// remind_every_days: once the stage is past due, each approver who has not
+	// decided is reminded at the due date and then every N working days.
+	// escalate_after_days: when the stage is still undecided N working days after
+	// the due date, the category owners are told once. Escalation only notifies:
+	// it adds no approver and never approves or rejects.
+	RemindEveryDays   int32 `protobuf:"varint,13,opt,name=remind_every_days,json=remindEveryDays,proto3" json:"remind_every_days,omitempty"`
+	EscalateAfterDays int32 `protobuf:"varint,14,opt,name=escalate_after_days,json=escalateAfterDays,proto3" json:"escalate_after_days,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *WorkflowStage) Reset() {
@@ -265,6 +280,20 @@ func (x *WorkflowStage) GetVetoUserIds() []string {
 		return x.VetoUserIds
 	}
 	return nil
+}
+
+func (x *WorkflowStage) GetRemindEveryDays() int32 {
+	if x != nil {
+		return x.RemindEveryDays
+	}
+	return 0
+}
+
+func (x *WorkflowStage) GetEscalateAfterDays() int32 {
+	if x != nil {
+		return x.EscalateAfterDays
+	}
+	return 0
 }
 
 // WorkflowDef is an admin-authored approval workflow. Every update bumps the
@@ -853,7 +882,7 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"\tGroupUnit\x12\x19\n" +
 	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12'\n" +
 	"\x0finternal_quorum\x18\x02 \x01(\tR\x0einternalQuorum\x12&\n" +
-	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xcb\x04\n" +
+	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xa7\x05\n" +
 	"\rWorkflowStage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -866,7 +895,9 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"\x15approvers_by_category\x18\b \x03(\v2;.steward.workflow.v1.WorkflowStage.ApproversByCategoryEntryR\x13approversByCategory\x12?\n" +
 	"\vgroup_units\x18\t \x03(\v2\x1e.steward.workflow.v1.GroupUnitR\n" +
 	"groupUnits\x12\"\n" +
-	"\rveto_user_ids\x18\f \x03(\tR\vvetoUserIds\x1ai\n" +
+	"\rveto_user_ids\x18\f \x03(\tR\vvetoUserIds\x12*\n" +
+	"\x11remind_every_days\x18\r \x01(\x05R\x0fremindEveryDays\x12.\n" +
+	"\x13escalate_after_days\x18\x0e \x01(\x05R\x11escalateAfterDays\x1ai\n" +
 	"\x18ApproversByCategoryEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x127\n" +
 	"\x05value\x18\x02 \x01(\v2!.steward.workflow.v1.ApproverListR\x05value:\x028\x01J\x04\b\n" +

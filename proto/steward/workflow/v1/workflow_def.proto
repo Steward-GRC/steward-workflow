@@ -33,8 +33,11 @@ message WorkflowStage {
   repeated string approver_ids = 3;
   // "one", "majority" or "all".
   string quorum = 4;
-  // Zero means the service-wide SLA.
+  // Whole working days on the site calendar, counted from stage entry to the
+  // end of the Nth working day. Zero means the service-wide SLA.
   int32 sla_days = 5;
+  // Rejects the version when the stage is still undecided at its due date. A
+  // time limit never approves.
   bool reject_on_sla_breach = 6;
   // Editor ordering only.
   bool pinned_last = 7;
@@ -51,6 +54,19 @@ message WorkflowStage {
   // approver pool holds no veto, without an error. Site admin, root and owners
   // who join only to make up a quorum never hold one.
   repeated string veto_user_ids = 12;
+
+  // Whole working days on the run's site calendar, counted past the due date
+  // (sla_days). Zero means off. Both need sla_days above zero and cannot be set
+  // on a stage that has reject_on_sla_breach, which rejects at the due date, so
+  // such a save is refused with InvalidArgument. Each is 0 to 365.
+  //
+  // remind_every_days: once the stage is past due, each approver who has not
+  // decided is reminded at the due date and then every N working days.
+  // escalate_after_days: when the stage is still undecided N working days after
+  // the due date, the category owners are told once. Escalation only notifies:
+  // it adds no approver and never approves or rejects.
+  int32 remind_every_days = 13;
+  int32 escalate_after_days = 14;
 
   // veto_approver_ids and veto_group_ids were the old per-stage marks, replaced
   // by veto_user_ids. Never reuse the numbers or names.

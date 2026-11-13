@@ -79,6 +79,12 @@ calendar never moves a run in flight. Zero or unset uses the service-wide SLA. S
 `Unavailable` when core cannot be reached to read the calendar; if core refuses the read or has no
 calendar, the run is submitted without a pin and counts calendar days; `reject_on_sla_breach` rejects instead of escalating when it passes.
 
+`remind_every_days` and `escalate_after_days` are whole working days, 0 to 365, counted past the due
+date, and 0 means off. They are saved and returned with the stage but nothing sends a reminder or an
+escalation yet. Either one needs `sla_days`, and neither can be set on a stage with
+`reject_on_sla_breach` (it rejects at the due date, so the stage is never overdue): a save that does
+either is refused with `InvalidArgument`. A time limit never approves.
+
 ## Change type
 
 Core classifies each version as Major, Minor or Fix. `Submit` passes the author's pick (`change_type`,
