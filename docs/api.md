@@ -16,7 +16,17 @@ A run gives every approver of the stage it is on a seat. There are two kinds:
 A person who is an individual approver and a member of a group on the same stage holds both seats
 and votes each separately. An individual approval never counts toward a group's quorum.
 
-A rejection is a vote, not a veto. A rejection on an individual seat takes that seat's approval out of
+A stage can name veto people in `veto_user_ids`. There is no workflow-wide switch: a non-empty list
+applies by itself. Each person must be one of the stage's explicit approvers (`approver_ids`,
+`approvers_by_category` or a group unit's `member_user_ids`), or the save is refused with
+`InvalidArgument`. At submit a named person holds the veto, on every seat they hold, only when they
+are in the stage's approver pool after the access filter; a named person who is not seated holds
+none and nothing is raised. Owners who join only to make up a quorum, site admin and root never
+hold one. Any one holder rejecting ends the run at once and `GetStatus` names them in `vetoed_by`.
+`veto_approver_ids`, `veto_group_ids`, `veto_enabled` and `SetWorkflowVetoEnabled` are accepted and
+ignored until the cleanup change removes them.
+
+Apart from that, a rejection is a vote, not a veto. A rejection on an individual seat takes that seat's approval out of
 reach, and the stage ends rejected only when the approvals still possible can no longer reach the
 stage quorum (`any`, `majority`, `all` or n-of): a majority of three survives one rejection, a
 majority of two or a stage with a single seat does not. The stage's other seats keep their tasks

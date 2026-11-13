@@ -154,12 +154,21 @@ type WorkflowStage struct {
 	// category, then the nearest ancestor that has one.
 	ApproversByCategory map[string]*ApproverList `protobuf:"bytes,8,rep,name=approvers_by_category,json=approversByCategory,proto3" json:"approvers_by_category,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	GroupUnits          []*GroupUnit             `protobuf:"bytes,9,rep,name=group_units,json=groupUnits,proto3" json:"group_units,omitempty"`
-	// Individual approvers whose reject ends the version at once, when the
-	// workflow has veto_enabled. Marks are inert while it is off.
+	// Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
+	// empty. Removed in the cleanup change once the web has moved.
 	VetoApproverIds []string `protobuf:"bytes,10,rep,name=veto_approver_ids,json=vetoApproverIds,proto3" json:"veto_approver_ids,omitempty"`
-	// Group seats marked the same way: every member's seat in the group holds
-	// the veto.
-	VetoGroupIds  []string `protobuf:"bytes,11,rep,name=veto_group_ids,json=vetoGroupIds,proto3" json:"veto_group_ids,omitempty"`
+	// Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
+	// empty. Removed in the cleanup change once the web has moved.
+	VetoGroupIds []string `protobuf:"bytes,11,rep,name=veto_group_ids,json=vetoGroupIds,proto3" json:"veto_group_ids,omitempty"`
+	// The people on this stage whose single reject ends the version as rejected
+	// at once, even inside a quorum. There is no workflow-wide switch: a
+	// non-empty list applies by itself. Each must be one of the stage's explicit
+	// approvers (approver_ids, approvers_by_category or a group unit's
+	// member_user_ids); a save that names anyone else is refused with
+	// InvalidArgument. At submit a named person who is not seated in the stage's
+	// approver pool holds no veto, without an error. Site admin, root and owners
+	// who join only to make up a quorum never hold one.
+	VetoUserIds   []string `protobuf:"bytes,12,rep,name=veto_user_ids,json=vetoUserIds,proto3" json:"veto_user_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -271,6 +280,13 @@ func (x *WorkflowStage) GetVetoGroupIds() []string {
 	return nil
 }
 
+func (x *WorkflowStage) GetVetoUserIds() []string {
+	if x != nil {
+		return x.VetoUserIds
+	}
+	return nil
+}
+
 // WorkflowDef is an admin-authored approval workflow. Every update bumps the
 // version; a run stays on the version it was submitted under.
 type WorkflowDef struct {
@@ -283,8 +299,8 @@ type WorkflowDef struct {
 	// Who created or last edited the definition. They may reassign its runs'
 	// approvals as the workflow author.
 	AuthorUserId string `protobuf:"bytes,6,opt,name=author_user_id,json=authorUserId,proto3" json:"author_user_id,omitempty"`
-	// The workflow's opt-in to veto seats; off by default. Set only through
-	// SetWorkflowVetoEnabled, never by Create or Update.
+	// Deprecated: stored and returned, but it gates nothing; a stage's
+	// veto_user_ids apply by themselves. Removed in the cleanup change.
 	VetoEnabled   bool `protobuf:"varint,7,opt,name=veto_enabled,json=vetoEnabled,proto3" json:"veto_enabled,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -858,7 +874,7 @@ func (*ArchiveWorkflowDefResponse) Descriptor() ([]byte, []int) {
 }
 
 // SetWorkflowVetoEnabledRequest switches a workflow's veto opt-in. The actor
-// must be a workflow admin.
+// must be a workflow admin. Deprecated: the flag gates nothing any more.
 type SetWorkflowVetoEnabledRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -973,7 +989,7 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"\tGroupUnit\x12\x19\n" +
 	"\bgroup_id\x18\x01 \x01(\tR\agroupId\x12'\n" +
 	"\x0finternal_quorum\x18\x02 \x01(\tR\x0einternalQuorum\x12&\n" +
-	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xca\x04\n" +
+	"\x0fmember_user_ids\x18\x03 \x03(\tR\rmemberUserIds\"\xee\x04\n" +
 	"\rWorkflowStage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -988,7 +1004,8 @@ const file_steward_workflow_v1_workflow_def_proto_rawDesc = "" +
 	"groupUnits\x12*\n" +
 	"\x11veto_approver_ids\x18\n" +
 	" \x03(\tR\x0fvetoApproverIds\x12$\n" +
-	"\x0eveto_group_ids\x18\v \x03(\tR\fvetoGroupIds\x1ai\n" +
+	"\x0eveto_group_ids\x18\v \x03(\tR\fvetoGroupIds\x12\"\n" +
+	"\rveto_user_ids\x18\f \x03(\tR\vvetoUserIds\x1ai\n" +
 	"\x18ApproversByCategoryEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x127\n" +
 	"\x05value\x18\x02 \x01(\v2!.steward.workflow.v1.ApproverListR\x05value:\x028\x01\"\xf2\x01\n" +

@@ -42,12 +42,21 @@ message WorkflowStage {
   // category, then the nearest ancestor that has one.
   map<string, ApproverList> approvers_by_category = 8;
   repeated GroupUnit group_units = 9;
-  // Individual approvers whose reject ends the version at once, when the
-  // workflow has veto_enabled. Marks are inert while it is off.
+  // Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
+  // empty. Removed in the cleanup change once the web has moved.
   repeated string veto_approver_ids = 10;
-  // Group seats marked the same way: every member's seat in the group holds
-  // the veto.
+  // Deprecated: accepted and ignored; replaced by veto_user_ids. Answered
+  // empty. Removed in the cleanup change once the web has moved.
   repeated string veto_group_ids = 11;
+  // The people on this stage whose single reject ends the version as rejected
+  // at once, even inside a quorum. There is no workflow-wide switch: a
+  // non-empty list applies by itself. Each must be one of the stage's explicit
+  // approvers (approver_ids, approvers_by_category or a group unit's
+  // member_user_ids); a save that names anyone else is refused with
+  // InvalidArgument. At submit a named person who is not seated in the stage's
+  // approver pool holds no veto, without an error. Site admin, root and owners
+  // who join only to make up a quorum never hold one.
+  repeated string veto_user_ids = 12;
 }
 
 // WorkflowDef is an admin-authored approval workflow. Every update bumps the
@@ -61,8 +70,8 @@ message WorkflowDef {
   // Who created or last edited the definition. They may reassign its runs'
   // approvals as the workflow author.
   string author_user_id = 6;
-  // The workflow's opt-in to veto seats; off by default. Set only through
-  // SetWorkflowVetoEnabled, never by Create or Update.
+  // Deprecated: stored and returned, but it gates nothing; a stage's
+  // veto_user_ids apply by themselves. Removed in the cleanup change.
   bool veto_enabled = 7;
 }
 
@@ -111,7 +120,7 @@ message ArchiveWorkflowDefRequest {
 message ArchiveWorkflowDefResponse {}
 
 // SetWorkflowVetoEnabledRequest switches a workflow's veto opt-in. The actor
-// must be a workflow admin.
+// must be a workflow admin. Deprecated: the flag gates nothing any more.
 message SetWorkflowVetoEnabledRequest {
   string id = 1;
   bool enabled = 2;
