@@ -37,6 +37,7 @@ unstamped build reports `dev`.
 | `Unavailable: workload verifier unavailable` | No JWKS has loaded since start: `steward-depstate-jwks`, then the `JWKS refresh failed` log line (CA file, bearer file, issuer URL). A `status 401` there means the API server refused `WORKLOAD_OIDC_BEARER_FILE`: it must hold a token with the API server's own audience, not the `steward` caller token. |
 | Act-as decisions name the target, not the admin | The call didn't come from a caller with on-behalf access: check the gateway's token and that `steward/steward-gateway` is in `WORKLOAD_ALLOWED_SERVICEACCOUNTS`. |
 | Core or identity refuse workflow's calls | Workflow's `WORKLOAD_TOKEN_FILE` mount, and that the callee lists `steward/steward-workflow` in its `WORKLOAD_ALLOWED_SERVICEACCOUNTS`. |
+| Submit fails `Unavailable: the site work calendar is unavailable` | Core is unreachable when a stage with `sla_days` is submitted; retry. Core must list workflow for `SettingsService/GetGlobalSettings`: without it the read is refused and runs fall back to calendar days (a `submit: the work calendar is not usable` error in the log). |
 
 ## Identity outages
 

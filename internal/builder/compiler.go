@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/Bugs5382/go-saga-orchestration/domain"
+
+	"github.com/Steward-GRC/steward-workflow/internal/workcal"
 )
 
 // CompileOptions carries the deployment's timing, applied at compile time.
@@ -25,14 +27,23 @@ func (o CompileOptions) slaHours() int {
 	return 72
 }
 
-// StageSLA returns a stage's SLA deadline and reminder time from now: the
-// stage's SLADays when set, else the service-wide hours. Submit, stage entry
-// and reassignment all use it, so their deadlines agree.
-func (o CompileOptions) StageSLA(stage Stage, now time.Time) (slaDeadline, reminder time.Time) {
+// StageSLA returns a stage's SLA deadline and reminder time from now. A stage
+// with SLADays counts that many whole working days on cal (the run's pinned
+// site calendar); with no calendar, or a count the calendar refuses (over
+// workcal.MaxWorkingDays), it counts calendar days, which is how runs from
+// before calendars were pinned behave. A stage with no SLADays uses the
+// service-wide hours. Submit, stage entry and reassignment all use it, so
+// their deadlines agree with the timer.
+func (o CompileOptions) StageSLA(stage Stage, now time.Time, cal *workcal.Calendar) (slaDeadline, reminder time.Time) {
 	slaDeadline = now.Add(time.Duration(o.StageSLAHours) * time.Hour)
 	reminder = now.Add(time.Duration(o.StageReminderHours) * time.Hour)
 	if stage.SLADays > 0 {
 		slaDeadline = now.Add(time.Duration(stage.SLADays) * 24 * time.Hour)
+		if cal != nil {
+			if d, err := cal.AddWorkingDays(now, stage.SLADays); err == nil {
+				slaDeadline = d
+			}
+		}
 		reminder = slaDeadline
 	}
 	return slaDeadline, reminder
@@ -44,7 +55,7 @@ func (o CompileOptions) StageSLA(stage Stage, now time.Time) (slaDeadline, remin
 //
 //	s{i}_switch            the stage's CEL condition, when it has one
 //	s{i}_assign            policy.assign_stage: creates the stage's seats on entry
-//	s{i}_task_0            manual_approval: the stage's gate, with its SLA as due_in
+//	s{i}_task_0            manual_approval: the stage's gate, with its SLA as due_in and sla_days
 //	s{i}_resolve_decision  policy.resolve_decision: sets the run variable "decision"
 //	s{i}_outcome_switch    approve: next stage; reject: set_status_rejected;
 //	                       request_changes and pending: back to s{i}_task_0
@@ -115,21 +126,28 @@ func Compile(wd WorkflowDef, opts CompileOptions) (domain.WorkflowDefinition, er
 		if stage.SLADays > 0 {
 			dueIn = fmt.Sprintf("%dh", stage.SLADays*24)
 		}
+		// due_in is the calendar-day fallback. The workflow's own
+		// manual_approval verb replaces it with the working-day count from sla_days
+		// when the run pinned a calendar.
 		timeoutNext := escalateID
 		if stage.RejectOnSLABreach {
 			timeoutNext = rejectActionID
 		}
 		// The engine needs an assignee, but the seats are the real approvers,
 		// so this is only a stage marker.
+		taskInputs := map[string]any{
+			"assignee":    fmt.Sprintf("stage:%d", i),
+			"stage_name":  stage.Name,
+			"stage_index": i,
+			"due_in":      dueIn,
+		}
+		if stage.SLADays > 0 {
+			taskInputs["sla_days"] = stage.SLADays
+		}
 		steps = append(steps, domain.Step{
-			ID:   taskID,
-			Type: domain.StepTypeManualApproval,
-			Inputs: map[string]any{
-				"assignee":    fmt.Sprintf("stage:%d", i),
-				"stage_name":  stage.Name,
-				"stage_index": i,
-				"due_in":      dueIn,
-			},
+			ID:     taskID,
+			Type:   domain.StepTypeManualApproval,
+			Inputs: taskInputs,
 			Branches: map[string]domain.Branch{
 				"timeout": {Next: timeoutNext},
 			},

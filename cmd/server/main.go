@@ -44,6 +44,7 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/readiness"
 	"github.com/Steward-GRC/steward-workflow/internal/saga"
 	"github.com/Steward-GRC/steward-workflow/internal/server"
+	"github.com/Steward-GRC/steward-workflow/internal/sitecal"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
 	"github.com/Steward-GRC/steward-workflow/internal/worker"
 )
@@ -170,6 +171,7 @@ func run(ctx context.Context, logger log.Logger) error {
 		ActorExtractor: actorFromContext,
 		Admins:         directory,
 		CoreStatus:     coreStatus{corePolicies},
+		WorkCalendar:   sitecal.NewCoreSource(corev1.NewSettingsServiceClient(coreConn)),
 		RunNotifier:    grpcsvc.NewRunEventEmitter(jobsPub),
 		CompileOpts:    compileOpts,
 		Logger:         logger,

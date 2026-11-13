@@ -12,9 +12,11 @@ import (
 
 	"github.com/Bugs5382/go-saga-orchestration/domain"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Steward-GRC/steward-workflow/internal/builder"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
+	"github.com/Steward-GRC/steward-workflow/internal/workcal"
 )
 
 // fakeSagaRun builds a domain.SagaRun with the given run id + inputs. The id is
@@ -398,5 +400,41 @@ func TestStageAssigner_NoEligibleNoOwners(t *testing.T) {
 	}
 	if ids := rec.userIDs(); len(ids) != 0 {
 		t.Fatalf("expected no assignments, got: %v", ids)
+	}
+}
+
+// A run that pinned a work calendar gets its seat deadline from the working
+// days (steward-workflow#67); a run without one keeps calendar days.
+func TestStageAssigner_SLADeadlineUsesThePinnedCalendar(t *testing.T) {
+	cal, err := workcal.New([]int{1, 2, 3, 4, 5}, "UTC", []string{"2026-12-25"})
+	require.NoError(t, err)
+	for name, tc := range map[string]struct {
+		extra map[string]any
+		check func(t *testing.T, due time.Time, now time.Time)
+	}{
+		"pinned": {map[string]any{workcal.PinKey: cal.Pin()}, func(t *testing.T, due, now time.Time) {
+			want, _ := cal.AddWorkingDays(now, 5)
+			require.True(t, due.Equal(want), "due = %s, want %s", due, want)
+			require.Equal(t, 0, due.Hour()+due.Minute())
+		}},
+		"not pinned": {nil, func(t *testing.T, due, now time.Time) {
+			require.WithinDuration(t, now.Add(5*24*time.Hour), due, 5*time.Second)
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			creator := &recordingCreator{}
+			wd := builder.WorkflowDef{ID: "def-1", Version: 1, Stages: []builder.Stage{
+				{Name: "S", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}, SLADays: 5},
+			}}
+			a := NewStageAssigner(fakeDefs{wd: wd}, creator, builder.CompileOptions{StageSLAHours: 72, StageReminderHours: 48})
+			run := fakeSagaRun("run-wd", baseInputs(map[string]any{"approvers_s0": []any{"u1"}}))
+			for k, v := range tc.extra {
+				run.Inputs[k] = v
+			}
+			now := time.Now().UTC()
+			require.NoError(t, a.AssignStage(context.Background(), run, 0))
+			require.Len(t, creator.calls, 1)
+			tc.check(t, creator.calls[0].SLADeadlineAt, now)
+		})
 	}
 }

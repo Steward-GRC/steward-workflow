@@ -251,3 +251,29 @@ func TestCompile_RequestChangesStaysOnTheStage(t *testing.T) {
 		}
 	}
 }
+
+// A stage with sla_days carries it as an input so the engine verb can count
+// working days at execution; due_in stays as the calendar-day fallback.
+func TestCompile_SLADaysInputBesideDueIn(t *testing.T) {
+	wd := WorkflowDef{ID: "wf", Name: "n", Version: 1, Stages: []Stage{
+		{Name: "S0", ApproverIDs: []string{"u1"}, Quorum: QuorumAny, SLADays: 5},
+		{Name: "S1", ApproverIDs: []string{"u1"}, Quorum: QuorumAny},
+	}}
+	def, err := Compile(wd, CompileOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]domain.Step{}
+	for _, s := range def.Steps {
+		byID[s.ID] = s
+	}
+	if got := byID["s0_task_0"].Inputs["sla_days"]; got != 5 {
+		t.Fatalf("s0 sla_days = %v, want 5", got)
+	}
+	if _, ok := byID["s1_task_0"].Inputs["sla_days"]; ok {
+		t.Fatal("a stage with no sla_days must not carry the input")
+	}
+	if byID["s1_task_0"].Inputs["due_in"] != "72h" {
+		t.Fatalf("s1 due_in = %v, want the service-wide 72h", byID["s1_task_0"].Inputs["due_in"])
+	}
+}

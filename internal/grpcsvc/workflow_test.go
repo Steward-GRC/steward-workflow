@@ -131,6 +131,8 @@ type stubSagaClient struct {
 	publishErr       error
 	signalErr        error
 	listErr          error
+	runInputs        map[string]any
+	runInputsErr     error
 
 	// cancellation tracking
 	cancelledRuns       []string
@@ -160,6 +162,9 @@ func (s *stubSagaClient) Signal(_ context.Context, runID, signal string, inputs 
 	s.lastSignalName = signal
 	s.lastSignalInputs = inputs
 	return nil
+}
+func (s *stubSagaClient) RunInputs(_ context.Context, _ string) (map[string]any, error) {
+	return s.runInputs, s.runInputsErr
 }
 func (s *stubSagaClient) ListPendingTasks(_ context.Context, approverUserID string) ([]PendingTaskInfo, error) {
 	if s.listErr != nil {

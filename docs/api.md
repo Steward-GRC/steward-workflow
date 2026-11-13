@@ -71,8 +71,12 @@ A `WorkflowDef` is an ordered list of `WorkflowStage`s. A stage's approvers are,
 
 `quorum` is the stage's own: `one`, `majority` (more than half) or `all`, counted over its
 individual seats only; every group unit must be met on its own quorum as well. A stage left without any approver can be saved as a draft
-but can't be submitted (6003). `sla_days` sets the stage's deadline (zero uses the service-wide
-SLA); `reject_on_sla_breach` rejects instead of escalating when it passes.
+but can't be submitted (6003). `sla_days` is a number of whole working days, counted on the site work calendar
+(working weekdays, holidays and time zone, set in core) that Submit reads and pins on the run: the
+stage is due at the end of the Nth working day after the day it is entered, so a later edit to the
+calendar never moves a run in flight. Zero or unset uses the service-wide SLA. Submit returns
+`Unavailable` when core cannot be reached to read the calendar; if core refuses the read or has no
+calendar, the run is submitted without a pin and counts calendar days; `reject_on_sla_breach` rejects instead of escalating when it passes.
 
 ## Events
 

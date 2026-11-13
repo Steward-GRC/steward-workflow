@@ -5,6 +5,7 @@ package saga
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/Steward-GRC/steward-workflow/internal/access"
 	"github.com/Steward-GRC/steward-workflow/internal/builder"
 	"github.com/Steward-GRC/steward-workflow/internal/store"
+	"github.com/Steward-GRC/steward-workflow/internal/workcal"
 )
 
 // assignmentCreator creates one seat; re-creating a seat resets it.
@@ -184,7 +186,10 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 		log.F("veto_named", len(stage.VetoUserIDs)), log.F("veto_holders", len(holders)), log.F("veto_seats", countVeto(plan)))
 
 	now := time.Now().UTC()
-	slaDeadline, reminder := a.opts.StageSLA(stage, now)
+	cal := pinnedCalendar(lg, run.Inputs)
+	slaDeadline, reminder := a.opts.StageSLA(stage, now, cal)
+	lg.Debug("assign_stage: stage deadline", log.F("policy_version_id", pvID), log.F("sla_days", stage.SLADays),
+		log.F("working_days", cal != nil), log.F("sla_deadline_at", slaDeadline.UTC().Format(time.RFC3339)))
 	actor := runStringInput(run.Inputs, "submitted_by")
 	for _, p := range plan {
 		if _, err := a.creator.CreateAssignment(ctx, store.AssignmentRow{
@@ -350,6 +355,20 @@ func dedupe(ids []string) []string {
 }
 
 // runIntInput reads an int run input; JSON numbers arrive as float64.
+// pinnedCalendar reads the run's pinned work calendar; nil when it has none or
+// the pin is unusable, which keeps the calendar-day math.
+func pinnedCalendar(lg log.Logger, inputs map[string]any) *workcal.Calendar {
+	cal, err := workcal.FromPin(inputs[workcal.PinKey])
+	switch {
+	case errors.Is(err, workcal.ErrNoPin):
+		return nil
+	case err != nil:
+		lg.Error(err, "pinned work calendar is unusable, counting calendar days")
+		return nil
+	}
+	return &cal
+}
+
 func runIntInput(inputs map[string]any, key string) int {
 	switch n := inputs[key].(type) {
 	case int:
