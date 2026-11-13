@@ -79,16 +79,17 @@ type WorkflowServiceClient interface {
 	// checked against the caller: an admin, the seat holder delegating their
 	// own seat, or the workflow's author. Only an admin may pick someone outside
 	// the stage's pool, and only with out_of_eligibility_ack. Refusals:
-	//   6002 SWAP_ASSIGNEE_FORBIDDEN       (PermissionDenied; metadata role)
-	//   6004 SWAP_REASON_REQUIRED          (InvalidArgument)
-	//   6005 SWAP_USERS_REQUIRED           (InvalidArgument)
-	//   6006 SWAP_SAME_USER                (InvalidArgument)
-	//   6007 SWAP_INITIATOR_ROLE_REQUIRED  (InvalidArgument)
-	//   6008 SWAP_ASSIGNMENT_NOT_FOUND     (NotFound; metadata stage, current_user_id)
-	//   6009 SWAP_ASSIGNMENT_NOT_PENDING   (FailedPrecondition; metadata stage, current_user_id, state)
-	//   6010 SWAP_ASSIGNEE_NOT_ELIGIBLE    (FailedPrecondition; metadata stage, stage_name, new_user_id)
-	//   6011 STAGE_INDEX_OUT_OF_RANGE      (InvalidArgument; metadata stage, stage_count)
-	//   6012 APPROVAL_RUN_NOT_FOUND        (NotFound; metadata policy_version_id)
+	//
+	//	6002 SWAP_ASSIGNEE_FORBIDDEN       (PermissionDenied; metadata role)
+	//	6004 SWAP_REASON_REQUIRED          (InvalidArgument)
+	//	6005 SWAP_USERS_REQUIRED           (InvalidArgument)
+	//	6006 SWAP_SAME_USER                (InvalidArgument)
+	//	6007 SWAP_INITIATOR_ROLE_REQUIRED  (InvalidArgument)
+	//	6008 SWAP_ASSIGNMENT_NOT_FOUND     (NotFound; metadata stage, current_user_id)
+	//	6009 SWAP_ASSIGNMENT_NOT_PENDING   (FailedPrecondition; metadata stage, current_user_id, state)
+	//	6010 SWAP_ASSIGNEE_NOT_ELIGIBLE    (FailedPrecondition; metadata stage, stage_name, new_user_id)
+	//	6011 STAGE_INDEX_OUT_OF_RANGE      (InvalidArgument; metadata stage, stage_count)
+	//	6012 APPROVAL_RUN_NOT_FOUND        (NotFound; metadata policy_version_id)
 	SwapAssignee(ctx context.Context, in *SwapAssigneeRequest, opts ...grpc.CallOption) (*SwapAssigneeResponse, error)
 	// BulkDecide approves or rejects several of the caller's seats at once.
 	// Every decision needs a comment; the decisions share a bulk_batch_id.
@@ -99,8 +100,9 @@ type WorkflowServiceClient interface {
 	// new_user_id for a seat without out_of_eligibility_ack, from the same
 	// stage definition SwapAssignee checks. It does no access check of its own,
 	// like GetStatus; the caller gates it as it gates SwapAssignee. Refusals:
-	//   6011 STAGE_INDEX_OUT_OF_RANGE (InvalidArgument; metadata stage, stage_count)
-	//   6012 APPROVAL_RUN_NOT_FOUND   (NotFound; metadata policy_version_id)
+	//
+	//	6011 STAGE_INDEX_OUT_OF_RANGE (InvalidArgument; metadata stage, stage_count)
+	//	6012 APPROVAL_RUN_NOT_FOUND   (NotFound; metadata policy_version_id)
 	GetStageEligiblePool(ctx context.Context, in *GetStageEligiblePoolRequest, opts ...grpc.CallOption) (*GetStageEligiblePoolResponse, error)
 	// ReassignUserWorkflowItems moves a merged account's in-flight items to the
 	// account it was merged into: its pending and paused seats and the
@@ -334,16 +336,17 @@ type WorkflowServiceServer interface {
 	// checked against the caller: an admin, the seat holder delegating their
 	// own seat, or the workflow's author. Only an admin may pick someone outside
 	// the stage's pool, and only with out_of_eligibility_ack. Refusals:
-	//   6002 SWAP_ASSIGNEE_FORBIDDEN       (PermissionDenied; metadata role)
-	//   6004 SWAP_REASON_REQUIRED          (InvalidArgument)
-	//   6005 SWAP_USERS_REQUIRED           (InvalidArgument)
-	//   6006 SWAP_SAME_USER                (InvalidArgument)
-	//   6007 SWAP_INITIATOR_ROLE_REQUIRED  (InvalidArgument)
-	//   6008 SWAP_ASSIGNMENT_NOT_FOUND     (NotFound; metadata stage, current_user_id)
-	//   6009 SWAP_ASSIGNMENT_NOT_PENDING   (FailedPrecondition; metadata stage, current_user_id, state)
-	//   6010 SWAP_ASSIGNEE_NOT_ELIGIBLE    (FailedPrecondition; metadata stage, stage_name, new_user_id)
-	//   6011 STAGE_INDEX_OUT_OF_RANGE      (InvalidArgument; metadata stage, stage_count)
-	//   6012 APPROVAL_RUN_NOT_FOUND        (NotFound; metadata policy_version_id)
+	//
+	//	6002 SWAP_ASSIGNEE_FORBIDDEN       (PermissionDenied; metadata role)
+	//	6004 SWAP_REASON_REQUIRED          (InvalidArgument)
+	//	6005 SWAP_USERS_REQUIRED           (InvalidArgument)
+	//	6006 SWAP_SAME_USER                (InvalidArgument)
+	//	6007 SWAP_INITIATOR_ROLE_REQUIRED  (InvalidArgument)
+	//	6008 SWAP_ASSIGNMENT_NOT_FOUND     (NotFound; metadata stage, current_user_id)
+	//	6009 SWAP_ASSIGNMENT_NOT_PENDING   (FailedPrecondition; metadata stage, current_user_id, state)
+	//	6010 SWAP_ASSIGNEE_NOT_ELIGIBLE    (FailedPrecondition; metadata stage, stage_name, new_user_id)
+	//	6011 STAGE_INDEX_OUT_OF_RANGE      (InvalidArgument; metadata stage, stage_count)
+	//	6012 APPROVAL_RUN_NOT_FOUND        (NotFound; metadata policy_version_id)
 	SwapAssignee(context.Context, *SwapAssigneeRequest) (*SwapAssigneeResponse, error)
 	// BulkDecide approves or rejects several of the caller's seats at once.
 	// Every decision needs a comment; the decisions share a bulk_batch_id.
@@ -354,8 +357,9 @@ type WorkflowServiceServer interface {
 	// new_user_id for a seat without out_of_eligibility_ack, from the same
 	// stage definition SwapAssignee checks. It does no access check of its own,
 	// like GetStatus; the caller gates it as it gates SwapAssignee. Refusals:
-	//   6011 STAGE_INDEX_OUT_OF_RANGE (InvalidArgument; metadata stage, stage_count)
-	//   6012 APPROVAL_RUN_NOT_FOUND   (NotFound; metadata policy_version_id)
+	//
+	//	6011 STAGE_INDEX_OUT_OF_RANGE (InvalidArgument; metadata stage, stage_count)
+	//	6012 APPROVAL_RUN_NOT_FOUND   (NotFound; metadata policy_version_id)
 	GetStageEligiblePool(context.Context, *GetStageEligiblePoolRequest) (*GetStageEligiblePoolResponse, error)
 	// ReassignUserWorkflowItems moves a merged account's in-flight items to the
 	// account it was merged into: its pending and paused seats and the
