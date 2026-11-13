@@ -94,35 +94,9 @@ func TestVeto_WithoutTheFlagARejectIsAVote(t *testing.T) {
 	require.Equal(t, "pending", reviewSeat(srv, "charlie"))
 }
 
-func setVetoReq(id string, enabled bool, actor string) *workflowv1.SetWorkflowVetoEnabledRequest {
-	return &workflowv1.SetWorkflowVetoEnabledRequest{Id: id, Enabled: enabled, ActorUserId: actor}
-}
-
-// Mock: "opting a workflow in is off by default and set by a template admin".
-func TestVeto_OptInIsOffByDefaultAndSetByAnAdmin(t *testing.T) {
-	fds := newFakeDefStore()
-	fds.defs["wf-2"] = builder.WorkflowDef{ID: "wf-2", Name: "Review", Version: 1,
-		Stages: []builder.Stage{{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}}}}
-	srv := newServerWithFakeDefStore(fds)
-	srv.admins = stubAdmins{admins: map[string]bool{"grace": true}}
-
-	got, err := srv.GetWorkflowDef(context.Background(), &workflowv1.GetWorkflowDefRequest{Id: "wf-2"})
-	require.NoError(t, err)
-	require.False(t, got.GetDef().GetVetoEnabled())
-
-	_, err = srv.SetWorkflowVetoEnabled(context.Background(), setVetoReq("wf-2", true, "bob"))
-	require.Equal(t, codes.PermissionDenied, status.Code(err))
-	require.False(t, fds.defs["wf-2"].VetoEnabled)
-
-	done, err := srv.SetWorkflowVetoEnabled(context.Background(), setVetoReq("wf-2", true, "grace"))
-	require.NoError(t, err)
-	require.True(t, done.GetDef().GetVetoEnabled())
-	require.True(t, fds.defs["wf-2"].VetoEnabled)
-}
-
 func vetoSaveServer() (*WorkflowServer, *fakeDefStore) {
 	fds := newFakeDefStore()
-	fds.defs["wf-1"] = builder.WorkflowDef{ID: "wf-1", Name: "Finance", Version: 1, VetoEnabled: true,
+	fds.defs["wf-1"] = builder.WorkflowDef{ID: "wf-1", Name: "Finance", Version: 1,
 		Stages: []builder.Stage{{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}}}}
 	return newServerWithFakeDefStore(fds), fds
 }
@@ -141,8 +115,7 @@ func vetoStage2(name string, mut func(*workflowv1.WorkflowStage)) *workflowv1.Wo
 	return st
 }
 
-// Mock: "stores a list of people per stage and answers it", and saving stages
-// leaves the old opt-in alone.
+// Mock: "stores a list of people per stage and answers it".
 func TestVeto_StageVetoPeopleRoundTripThroughUpdate(t *testing.T) {
 	srv, fds := vetoSaveServer()
 	resp, err := vetoUpdate(srv,
@@ -157,7 +130,6 @@ func TestVeto_StageVetoPeopleRoundTripThroughUpdate(t *testing.T) {
 	}
 	require.Equal(t, [][]string{{"user-charlie", "user-dave"}, {"user-dave"}, nil}, got)
 	require.Equal(t, []string{"user-charlie", "user-dave"}, fds.defs["wf-1"].Stages[0].VetoUserIDs)
-	require.True(t, fds.defs["wf-1"].VetoEnabled, "an update keeps the stored flag, which now gates nothing")
 }
 
 // Mock: "refuses a person who is not one of the stage's approvers", and
@@ -209,54 +181,4 @@ func TestVeto_CreateStoresTheListAndRefusesAStranger(t *testing.T) {
 	made, err := create("user-dave")
 	require.NoError(t, err)
 	require.Equal(t, []string{"user-dave"}, made.GetDef().GetStages()[0].GetVetoUserIds())
-}
-
-// Mock: "are accepted and ignored on a stage": the old lists are not stored and
-// are answered empty.
-func TestVeto_TheOldListsAreAcceptedAndIgnored(t *testing.T) {
-	srv, fds := vetoSaveServer()
-	resp, err := vetoUpdate(srv, vetoStage2("First", func(s *workflowv1.WorkflowStage) {
-		// The deprecated fields are exactly what this test sends.
-		s.VetoApproverIds = []string{"user-charlie"} //nolint:staticcheck // SA1019: proves the old fields are ignored
-		s.VetoGroupIds = []string{"group-finance"}   //nolint:staticcheck // SA1019: proves the old fields are ignored
-	}))
-	require.NoError(t, err)
-	got := resp.GetDef().GetStages()[0]
-	require.Empty(t, got.GetVetoApproverIds())
-	require.Empty(t, got.GetVetoGroupIds())
-	require.Empty(t, got.GetVetoUserIds())
-	require.Empty(t, fds.defs["wf-1"].Stages[0].VetoApproverIDs)
-	require.Empty(t, fds.defs["wf-1"].Stages[0].VetoGroupIDs)
-}
-
-// A definition stored before the change answers its old marks as empty and its
-// people as stored.
-func TestVeto_AStoredDefinitionWithOldMarksAnswersThemEmpty(t *testing.T) {
-	fds := newFakeDefStore()
-	fds.defs["wf-1"] = builder.WorkflowDef{ID: "wf-1", Name: "Finance", Version: 1, VetoEnabled: true,
-		Stages: []builder.Stage{{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"},
-			VetoApproverIDs: []string{"u1"}, VetoGroupIDs: []string{"g1"}, VetoUserIDs: []string{"u1"}}}}
-	got, err := newServerWithFakeDefStore(fds).GetWorkflowDef(context.Background(), &workflowv1.GetWorkflowDefRequest{Id: "wf-1"})
-	require.NoError(t, err)
-	st := got.GetDef().GetStages()[0]
-	require.Empty(t, st.GetVetoApproverIds())
-	require.Empty(t, st.GetVetoGroupIds())
-	require.Equal(t, []string{"u1"}, st.GetVetoUserIds())
-}
-
-// Mock: "apply without any workflow switch" (the submit half): the old flag is
-// no longer pinned into the run, whatever it holds.
-func TestVeto_SubmitNoLongerPinsTheOldFlag(t *testing.T) {
-	for _, enabled := range []bool{true, false} {
-		srv := newTestServer()
-		srv.defStore = &stubWorkflowDefStore{wd: builder.WorkflowDef{
-			ID: "def-1", Name: "Finance", Version: 1, VetoEnabled: enabled,
-			Stages: []builder.Stage{{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}, VetoUserIDs: []string{"u1"}}},
-		}}
-		_, err := srv.Submit(context.Background(), &workflowv1.SubmitRequest{
-			PolicyVersionId: "pv-1", PolicyId: "pol-1", SubmittedBy: "bob",
-		})
-		require.NoError(t, err)
-		require.NotContains(t, srv.sagaClient.(*stubSagaClient).startedInputs, "veto_enabled")
-	}
 }

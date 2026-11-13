@@ -47,15 +47,13 @@ func TestStage_ValidateVetoUsers(t *testing.T) {
 	}
 }
 
-// A stage stored before the change has no veto_user_ids and still loads, with
-// its old keys read and kept; one with the new key round-trips.
+// A stage stored before the change has no veto_user_ids and still loads, the
+// old keys ignored; one with the new key round-trips.
 func TestStage_OldStoredJSONStillLoads(t *testing.T) {
 	var old Stage
 	require.NoError(t, json.Unmarshal([]byte(
 		`{"name":"s","approver_ids":["a"],"quorum":"any","veto_approver_ids":["a"],"veto_group_ids":["g"]}`), &old))
 	require.Empty(t, old.VetoUserIDs)
-	require.Equal(t, []string{"a"}, old.VetoApproverIDs)
-	require.Equal(t, []string{"g"}, old.VetoGroupIDs)
 
 	b, err := json.Marshal(Stage{Name: "s", Quorum: QuorumAny, ApproverIDs: []string{"a"}, VetoUserIDs: []string{"a"}})
 	require.NoError(t, err)

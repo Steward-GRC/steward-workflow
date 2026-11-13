@@ -76,15 +76,6 @@ func TestStageAssigner_NamedPeopleHoldTheVetoWithoutAnyWorkflowSwitch(t *testing
 	}, vetoSeatsFor(t, vetoStage(nil), nil, nil))
 }
 
-// Mock: "apply without any workflow switch": a run pinned with the old flag off
-// still seats the named person with a veto.
-func TestStageAssigner_TheOldPinnedFlagGatesNothing(t *testing.T) {
-	for _, flag := range []any{false, true, nil} {
-		seats := vetoSeatsFor(t, vetoStage(nil), nil, map[string]any{"veto_enabled": flag})
-		require.Equal(t, []string{"dave|"}, holders(seats), "flag %v", flag)
-	}
-}
-
 // A member of a seated group unit is in the pool, so a named group member holds
 // the veto on their group seat.
 func TestStageAssigner_ANamedGroupMemberHoldsTheVeto(t *testing.T) {
@@ -152,15 +143,4 @@ func TestStageAssigner_BackstopOwnersAndRootNeverHoldAVeto(t *testing.T) {
 func TestStageAssigner_AStageWithoutVetoPeopleHasNoVetoSeats(t *testing.T) {
 	st := vetoStage(func(s *builder.Stage) { s.VetoUserIDs = nil })
 	require.Empty(t, holders(vetoSeatsFor(t, st, nil, nil)))
-}
-
-// Mock: "the old switch and lists are accepted and ignored": stored marks from
-// an older build seat nobody with a veto, with the old flag on.
-func TestStageAssigner_TheOldMarksAreIgnored(t *testing.T) {
-	st := vetoStage(func(s *builder.Stage) {
-		s.VetoUserIDs = nil
-		s.VetoApproverIDs = []string{"dave"}
-		s.VetoGroupIDs = []string{"g-finance"}
-	})
-	require.Empty(t, holders(vetoSeatsFor(t, st, nil, map[string]any{"veto_enabled": true})))
 }

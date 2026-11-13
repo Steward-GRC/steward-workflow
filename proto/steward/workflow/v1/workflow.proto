@@ -79,10 +79,6 @@ service WorkflowService {
   rpc CreateWorkflowDef(CreateWorkflowDefRequest) returns (CreateWorkflowDefResponse);
   rpc UpdateWorkflowDef(UpdateWorkflowDefRequest) returns (UpdateWorkflowDefResponse);
   rpc ArchiveWorkflowDef(ArchiveWorkflowDefRequest) returns (ArchiveWorkflowDefResponse);
-  // SetWorkflowVetoEnabled stores a workflow's old veto opt-in (admin only).
-  // Deprecated: the flag gates nothing; a stage's veto_user_ids apply by
-  // themselves. Removed in the cleanup change.
-  rpc SetWorkflowVetoEnabled(SetWorkflowVetoEnabledRequest) returns (SetWorkflowVetoEnabledResponse);
 
   // ResolveWorkflow returns the workflow a policy would be submitted under:
   // its own override, else its home category's default. Empty means none, so

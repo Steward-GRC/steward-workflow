@@ -23,8 +23,9 @@ applies by itself. Each person must be one of the stage's explicit approvers (`a
 are in the stage's approver pool after the access filter; a named person who is not seated holds
 none and nothing is raised. Owners who join only to make up a quorum, site admin and root never
 hold one. Any one holder rejecting ends the run at once and `GetStatus` names them in `vetoed_by`.
-`veto_approver_ids`, `veto_group_ids`, `veto_enabled` and `SetWorkflowVetoEnabled` are accepted and
-ignored until the cleanup change removes them.
+The old workflow-wide switch is gone: `SetWorkflowVetoEnabled`, `WorkflowDef.veto_enabled` and the
+stage fields `veto_approver_ids` and `veto_group_ids` no longer exist, and their numbers and names
+are reserved in the proto.
 
 Apart from that, a rejection is a vote, not a veto. A rejection on an individual seat takes that seat's approval out of
 reach, and the stage ends rejected only when the approvals still possible can no longer reach the

@@ -90,14 +90,6 @@ func (f *fakeDefStore) Update(_ context.Context, id string, wd builder.WorkflowD
 	}
 	wd.ID = id
 	wd.Version = cur.Version + 1
-	wd.VetoEnabled = cur.VetoEnabled
-	f.defs[id] = wd
-	return wd, nil
-}
-
-func (f *fakeDefStore) SetVetoEnabled(_ context.Context, id string, enabled bool) (builder.WorkflowDef, error) {
-	wd := f.defs[id]
-	wd.VetoEnabled = enabled
 	f.defs[id] = wd
 	return wd, nil
 }

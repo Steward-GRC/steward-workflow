@@ -2611,7 +2611,7 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\fDecisionType\x12\x1d\n" +
 	"\x19DECISION_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15DECISION_TYPE_APPROVE\x10\x01\x12\x18\n" +
-	"\x14DECISION_TYPE_REJECT\x10\x022\xed\x0f\n" +
+	"\x14DECISION_TYPE_REJECT\x10\x022\xe9\x0e\n" +
 	"\x0fWorkflowService\x12Q\n" +
 	"\x06Submit\x12\".steward.workflow.v1.SubmitRequest\x1a#.steward.workflow.v1.SubmitResponse\x12Q\n" +
 	"\x06Signal\x12\".steward.workflow.v1.SignalRequest\x1a#.steward.workflow.v1.SignalResponse\x12Z\n" +
@@ -2629,8 +2629,7 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x0eGetWorkflowDef\x12*.steward.workflow.v1.GetWorkflowDefRequest\x1a+.steward.workflow.v1.GetWorkflowDefResponse\x12r\n" +
 	"\x11CreateWorkflowDef\x12-.steward.workflow.v1.CreateWorkflowDefRequest\x1a..steward.workflow.v1.CreateWorkflowDefResponse\x12r\n" +
 	"\x11UpdateWorkflowDef\x12-.steward.workflow.v1.UpdateWorkflowDefRequest\x1a..steward.workflow.v1.UpdateWorkflowDefResponse\x12u\n" +
-	"\x12ArchiveWorkflowDef\x12..steward.workflow.v1.ArchiveWorkflowDefRequest\x1a/.steward.workflow.v1.ArchiveWorkflowDefResponse\x12\x81\x01\n" +
-	"\x16SetWorkflowVetoEnabled\x122.steward.workflow.v1.SetWorkflowVetoEnabledRequest\x1a3.steward.workflow.v1.SetWorkflowVetoEnabledResponse\x12l\n" +
+	"\x12ArchiveWorkflowDef\x12..steward.workflow.v1.ArchiveWorkflowDefRequest\x1a/.steward.workflow.v1.ArchiveWorkflowDefResponse\x12l\n" +
 	"\x0fResolveWorkflow\x12+.steward.workflow.v1.ResolveWorkflowRequest\x1a,.steward.workflow.v1.ResolveWorkflowResponseBOZMgithub.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1;workflowv1b\x06proto3"
 
 var (
@@ -2693,13 +2692,11 @@ var file_steward_workflow_v1_workflow_proto_goTypes = []any{
 	(*CreateWorkflowDefRequest)(nil),          // 42: steward.workflow.v1.CreateWorkflowDefRequest
 	(*UpdateWorkflowDefRequest)(nil),          // 43: steward.workflow.v1.UpdateWorkflowDefRequest
 	(*ArchiveWorkflowDefRequest)(nil),         // 44: steward.workflow.v1.ArchiveWorkflowDefRequest
-	(*SetWorkflowVetoEnabledRequest)(nil),     // 45: steward.workflow.v1.SetWorkflowVetoEnabledRequest
-	(*ListWorkflowDefsResponse)(nil),          // 46: steward.workflow.v1.ListWorkflowDefsResponse
-	(*GetWorkflowDefResponse)(nil),            // 47: steward.workflow.v1.GetWorkflowDefResponse
-	(*CreateWorkflowDefResponse)(nil),         // 48: steward.workflow.v1.CreateWorkflowDefResponse
-	(*UpdateWorkflowDefResponse)(nil),         // 49: steward.workflow.v1.UpdateWorkflowDefResponse
-	(*ArchiveWorkflowDefResponse)(nil),        // 50: steward.workflow.v1.ArchiveWorkflowDefResponse
-	(*SetWorkflowVetoEnabledResponse)(nil),    // 51: steward.workflow.v1.SetWorkflowVetoEnabledResponse
+	(*ListWorkflowDefsResponse)(nil),          // 45: steward.workflow.v1.ListWorkflowDefsResponse
+	(*GetWorkflowDefResponse)(nil),            // 46: steward.workflow.v1.GetWorkflowDefResponse
+	(*CreateWorkflowDefResponse)(nil),         // 47: steward.workflow.v1.CreateWorkflowDefResponse
+	(*UpdateWorkflowDefResponse)(nil),         // 48: steward.workflow.v1.UpdateWorkflowDefResponse
+	(*ArchiveWorkflowDefResponse)(nil),        // 49: steward.workflow.v1.ArchiveWorkflowDefResponse
 }
 var file_steward_workflow_v1_workflow_proto_depIdxs = []int32{
 	37, // 0: steward.workflow.v1.SignalRequest.signal:type_name -> steward.workflow.v1.SignalType
@@ -2740,28 +2737,26 @@ var file_steward_workflow_v1_workflow_proto_depIdxs = []int32{
 	42, // 35: steward.workflow.v1.WorkflowService.CreateWorkflowDef:input_type -> steward.workflow.v1.CreateWorkflowDefRequest
 	43, // 36: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:input_type -> steward.workflow.v1.UpdateWorkflowDefRequest
 	44, // 37: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:input_type -> steward.workflow.v1.ArchiveWorkflowDefRequest
-	45, // 38: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:input_type -> steward.workflow.v1.SetWorkflowVetoEnabledRequest
-	2,  // 39: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
-	5,  // 40: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
-	7,  // 41: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
-	13, // 42: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
-	17, // 43: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
-	20, // 44: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
-	23, // 45: steward.workflow.v1.WorkflowService.ListDecidedApprovals:output_type -> steward.workflow.v1.ListDecidedApprovalsResponse
-	25, // 46: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
-	29, // 47: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
-	32, // 48: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
-	34, // 49: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
-	36, // 50: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
-	46, // 51: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
-	47, // 52: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
-	48, // 53: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
-	49, // 54: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
-	50, // 55: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
-	51, // 56: steward.workflow.v1.WorkflowService.SetWorkflowVetoEnabled:output_type -> steward.workflow.v1.SetWorkflowVetoEnabledResponse
-	3,  // 57: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
-	40, // [40:58] is the sub-list for method output_type
-	22, // [22:40] is the sub-list for method input_type
+	2,  // 38: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
+	5,  // 39: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
+	7,  // 40: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
+	13, // 41: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
+	17, // 42: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
+	20, // 43: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
+	23, // 44: steward.workflow.v1.WorkflowService.ListDecidedApprovals:output_type -> steward.workflow.v1.ListDecidedApprovalsResponse
+	25, // 45: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
+	29, // 46: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
+	32, // 47: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
+	34, // 48: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
+	36, // 49: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
+	45, // 50: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
+	46, // 51: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
+	47, // 52: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
+	48, // 53: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
+	49, // 54: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
+	3,  // 55: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
+	39, // [39:56] is the sub-list for method output_type
+	22, // [22:39] is the sub-list for method input_type
 	22, // [22:22] is the sub-list for extension type_name
 	22, // [22:22] is the sub-list for extension extendee
 	0,  // [0:22] is the sub-list for field type_name
