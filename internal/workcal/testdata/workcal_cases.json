@@ -1,0 +1,642 @@
+{
+  "description": "Shared cases for the working-day calendar. weekdays use ISO numbering (1=Monday .. 7=Sunday). from is any RFC 3339 instant; want is the exclusive end of the Nth working day after the day of entry (the instant of local midnight that starts the following civil day), in UTC. n <= 0 returns from unchanged.",
+  "calendars": {
+    "mon_fri_utc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "UTC",
+      "holidays": []
+    },
+    "mon_fri_nyc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "America/New_York",
+      "holidays": []
+    },
+    "mon_fri_kolkata": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "Asia/Kolkata",
+      "holidays": []
+    },
+    "mon_fri_lord_howe": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "Australia/Lord_Howe",
+      "holidays": []
+    },
+    "every_day_nyc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "timezone": "America/New_York",
+      "holidays": []
+    },
+    "every_day_sydney": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "timezone": "Australia/Sydney",
+      "holidays": []
+    },
+    "sat_sun_utc": {
+      "weekdays": [
+        6,
+        7
+      ],
+      "timezone": "UTC",
+      "holidays": []
+    },
+    "sun_thu_utc": {
+      "weekdays": [
+        7,
+        1,
+        2,
+        3,
+        4
+      ],
+      "timezone": "UTC",
+      "holidays": []
+    },
+    "wed_only_utc": {
+      "weekdays": [
+        3
+      ],
+      "timezone": "UTC",
+      "holidays": []
+    },
+    "wed_only_holiday_utc": {
+      "weekdays": [
+        3
+      ],
+      "timezone": "UTC",
+      "holidays": [
+        "2026-11-18"
+      ]
+    },
+    "monday_holiday_utc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "UTC",
+      "holidays": [
+        "2026-11-16"
+      ]
+    },
+    "friday_holiday_utc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "UTC",
+      "holidays": [
+        "2026-11-20"
+      ]
+    },
+    "saturday_holiday_utc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "UTC",
+      "holidays": [
+        "2026-11-14"
+      ]
+    },
+    "year_end_utc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "UTC",
+      "holidays": [
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-28",
+        "2027-01-01"
+      ]
+    },
+    "christmas_nyc": {
+      "weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "timezone": "America/New_York",
+      "holidays": [
+        "2026-12-24",
+        "2026-12-25",
+        "2026-12-28"
+      ]
+    }
+  },
+  "add_working_days": [
+    {
+      "name": "monday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-16T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "tuesday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-17T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-19T00:00:00Z"
+    },
+    {
+      "name": "thursday_n2_spans_weekend",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-12T09:00:00Z",
+      "n": 2,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "friday_evening_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-13T22:00:00Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "friday_evening_n2",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-13T22:00:00Z",
+      "n": 2,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "saturday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-14T12:00:00Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "sunday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-15T12:00:00Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "saturday_n5",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-14T12:00:00Z",
+      "n": 5,
+      "want": "2026-11-21T00:00:00Z"
+    },
+    {
+      "name": "monday_n5_full_week",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-16T10:00:00Z",
+      "n": 5,
+      "want": "2026-11-24T00:00:00Z"
+    },
+    {
+      "name": "zero_returns_input",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-14T12:34:56Z",
+      "n": 0,
+      "want": "2026-11-14T12:34:56Z"
+    },
+    {
+      "name": "negative_returns_input",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-14T12:34:56Z",
+      "n": -3,
+      "want": "2026-11-14T12:34:56Z"
+    },
+    {
+      "name": "exactly_midnight_monday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-16T00:00:00Z",
+      "n": 1,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "last_millisecond_sunday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-15T23:59:59.999Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "last_second_friday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-13T23:59:59Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "one_second_into_friday_n1",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-13T00:00:01Z",
+      "n": 1,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "n60_across_months",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-12T09:00:00Z",
+      "n": 60,
+      "want": "2027-02-05T00:00:00Z"
+    },
+    {
+      "name": "n250_across_a_year",
+      "calendar": "mon_fri_utc",
+      "from": "2026-11-12T09:00:00Z",
+      "n": 250,
+      "want": "2027-10-29T00:00:00Z"
+    },
+    {
+      "name": "leap_day_n3",
+      "calendar": "mon_fri_utc",
+      "from": "2028-02-28T10:00:00Z",
+      "n": 3,
+      "want": "2028-03-03T00:00:00Z"
+    },
+    {
+      "name": "year_boundary_n3",
+      "calendar": "mon_fri_utc",
+      "from": "2026-12-30T10:00:00Z",
+      "n": 3,
+      "want": "2027-01-05T00:00:00Z"
+    },
+    {
+      "name": "holiday_monday_after_friday_evening",
+      "calendar": "monday_holiday_utc",
+      "from": "2026-11-13T22:00:00Z",
+      "n": 1,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "entry_on_holiday_monday_n1",
+      "calendar": "monday_holiday_utc",
+      "from": "2026-11-16T09:00:00Z",
+      "n": 1,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "holiday_on_last_day_of_range",
+      "calendar": "friday_holiday_utc",
+      "from": "2026-11-16T09:00:00Z",
+      "n": 4,
+      "want": "2026-11-24T00:00:00Z"
+    },
+    {
+      "name": "holiday_on_saturday_has_no_effect",
+      "calendar": "saturday_holiday_utc",
+      "from": "2026-11-12T09:00:00Z",
+      "n": 2,
+      "want": "2026-11-17T00:00:00Z"
+    },
+    {
+      "name": "consecutive_holidays_with_weekend",
+      "calendar": "year_end_utc",
+      "from": "2026-12-23T10:00:00Z",
+      "n": 1,
+      "want": "2026-12-30T00:00:00Z"
+    },
+    {
+      "name": "year_end_n10_with_four_holidays",
+      "calendar": "year_end_utc",
+      "from": "2026-12-18T12:00:00Z",
+      "n": 10,
+      "want": "2027-01-08T00:00:00Z"
+    },
+    {
+      "name": "sat_sun_calendar_from_friday",
+      "calendar": "sat_sun_utc",
+      "from": "2026-11-13T12:00:00Z",
+      "n": 1,
+      "want": "2026-11-15T00:00:00Z"
+    },
+    {
+      "name": "sat_sun_calendar_from_sunday",
+      "calendar": "sat_sun_utc",
+      "from": "2026-11-15T12:00:00Z",
+      "n": 1,
+      "want": "2026-11-22T00:00:00Z"
+    },
+    {
+      "name": "sat_sun_calendar_from_saturday_n2",
+      "calendar": "sat_sun_utc",
+      "from": "2026-11-14T12:00:00Z",
+      "n": 2,
+      "want": "2026-11-22T00:00:00Z"
+    },
+    {
+      "name": "sun_thu_calendar_from_thursday",
+      "calendar": "sun_thu_utc",
+      "from": "2026-11-12T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-16T00:00:00Z"
+    },
+    {
+      "name": "sun_thu_calendar_from_friday_n3",
+      "calendar": "sun_thu_utc",
+      "from": "2026-11-13T10:00:00Z",
+      "n": 3,
+      "want": "2026-11-18T00:00:00Z"
+    },
+    {
+      "name": "single_weekday_n2",
+      "calendar": "wed_only_utc",
+      "from": "2026-11-16T10:00:00Z",
+      "n": 2,
+      "want": "2026-11-26T00:00:00Z"
+    },
+    {
+      "name": "single_weekday_entry_on_that_day_n1",
+      "calendar": "wed_only_utc",
+      "from": "2026-11-18T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-26T00:00:00Z"
+    },
+    {
+      "name": "single_weekday_with_holiday_on_it",
+      "calendar": "wed_only_holiday_utc",
+      "from": "2026-11-16T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-26T00:00:00Z"
+    },
+    {
+      "name": "nyc_local_sunday_is_utc_monday_n1",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-11-16T03:30:00Z",
+      "n": 1,
+      "want": "2026-11-17T05:00:00Z"
+    },
+    {
+      "name": "nyc_local_tuesday_is_utc_wednesday_n1",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-11-18T04:30:00Z",
+      "n": 1,
+      "want": "2026-11-19T05:00:00Z"
+    },
+    {
+      "name": "nyc_friday_2330_local_n1",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-11-13T23:30:00-05:00",
+      "n": 1,
+      "want": "2026-11-17T05:00:00Z"
+    },
+    {
+      "name": "nyc_spring_forward_weekdays_friday_n1",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-03-06T17:00:00-05:00",
+      "n": 1,
+      "want": "2026-03-10T04:00:00Z"
+    },
+    {
+      "name": "nyc_spring_forward_weekdays_thursday_n3",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-03-05T09:00:00-05:00",
+      "n": 3,
+      "want": "2026-03-11T04:00:00Z"
+    },
+    {
+      "name": "nyc_spring_forward_day_is_23_hours",
+      "calendar": "every_day_nyc",
+      "from": "2026-03-07T12:00:00-05:00",
+      "n": 1,
+      "want": "2026-03-09T04:00:00Z"
+    },
+    {
+      "name": "nyc_spring_forward_entry_on_the_day",
+      "calendar": "every_day_nyc",
+      "from": "2026-03-08T12:00:00-04:00",
+      "n": 1,
+      "want": "2026-03-10T04:00:00Z"
+    },
+    {
+      "name": "nyc_fall_back_day_is_25_hours",
+      "calendar": "every_day_nyc",
+      "from": "2026-10-31T12:00:00-04:00",
+      "n": 1,
+      "want": "2026-11-02T05:00:00Z"
+    },
+    {
+      "name": "nyc_fall_back_weekdays_friday_n1",
+      "calendar": "mon_fri_nyc",
+      "from": "2026-10-30T20:00:00-04:00",
+      "n": 1,
+      "want": "2026-11-03T05:00:00Z"
+    },
+    {
+      "name": "nyc_fall_back_n7_every_day",
+      "calendar": "every_day_nyc",
+      "from": "2026-10-28T12:00:00-04:00",
+      "n": 7,
+      "want": "2026-11-05T05:00:00Z"
+    },
+    {
+      "name": "nyc_christmas_holidays",
+      "calendar": "christmas_nyc",
+      "from": "2026-12-23T10:00:00-05:00",
+      "n": 1,
+      "want": "2026-12-30T05:00:00Z"
+    },
+    {
+      "name": "kolkata_monday_n1",
+      "calendar": "mon_fri_kolkata",
+      "from": "2026-11-16T10:00:00Z",
+      "n": 1,
+      "want": "2026-11-17T18:30:00Z"
+    },
+    {
+      "name": "kolkata_friday_2330_local_n1",
+      "calendar": "mon_fri_kolkata",
+      "from": "2026-11-13T18:00:00Z",
+      "n": 1,
+      "want": "2026-11-16T18:30:00Z"
+    },
+    {
+      "name": "kolkata_saturday_0130_local_n1",
+      "calendar": "mon_fri_kolkata",
+      "from": "2026-11-13T20:00:00Z",
+      "n": 1,
+      "want": "2026-11-16T18:30:00Z"
+    },
+    {
+      "name": "kolkata_utc_friday_is_local_saturday_n1",
+      "calendar": "mon_fri_kolkata",
+      "from": "2026-11-13T19:00:00Z",
+      "n": 1,
+      "want": "2026-11-16T18:30:00Z"
+    },
+    {
+      "name": "kolkata_n10",
+      "calendar": "mon_fri_kolkata",
+      "from": "2026-11-16T05:00:00Z",
+      "n": 10,
+      "want": "2026-11-30T18:30:00Z"
+    },
+    {
+      "name": "lord_howe_dst_ends_friday_n1",
+      "calendar": "mon_fri_lord_howe",
+      "from": "2026-04-03T12:00:00+11:00",
+      "n": 1,
+      "want": "2026-04-06T13:30:00Z"
+    },
+    {
+      "name": "lord_howe_dst_ends_thursday_n5",
+      "calendar": "mon_fri_lord_howe",
+      "from": "2026-04-02T12:00:00+11:00",
+      "n": 5,
+      "want": "2026-04-09T13:30:00Z"
+    },
+    {
+      "name": "lord_howe_dst_starts_n3",
+      "calendar": "mon_fri_lord_howe",
+      "from": "2026-10-02T12:00:00+10:30",
+      "n": 3,
+      "want": "2026-10-07T13:00:00Z"
+    },
+    {
+      "name": "sydney_dst_starts_day_is_23_hours",
+      "calendar": "every_day_sydney",
+      "from": "2026-10-03T12:00:00+10:00",
+      "n": 1,
+      "want": "2026-10-04T13:00:00Z"
+    },
+    {
+      "name": "sydney_dst_ends_day_is_25_hours",
+      "calendar": "every_day_sydney",
+      "from": "2026-04-04T12:00:00+11:00",
+      "n": 1,
+      "want": "2026-04-05T14:00:00Z"
+    }
+  ],
+  "is_working_day": [
+    {
+      "calendar": "mon_fri_utc",
+      "date": "2026-11-13",
+      "want": true
+    },
+    {
+      "calendar": "mon_fri_utc",
+      "date": "2026-11-14",
+      "want": false
+    },
+    {
+      "calendar": "mon_fri_utc",
+      "date": "2026-11-15",
+      "want": false
+    },
+    {
+      "calendar": "mon_fri_utc",
+      "date": "2026-11-16",
+      "want": true
+    },
+    {
+      "calendar": "monday_holiday_utc",
+      "date": "2026-11-16",
+      "want": false
+    },
+    {
+      "calendar": "monday_holiday_utc",
+      "date": "2026-11-17",
+      "want": true
+    },
+    {
+      "calendar": "saturday_holiday_utc",
+      "date": "2026-11-14",
+      "want": false
+    },
+    {
+      "calendar": "sat_sun_utc",
+      "date": "2026-11-14",
+      "want": true
+    },
+    {
+      "calendar": "sat_sun_utc",
+      "date": "2026-11-16",
+      "want": false
+    },
+    {
+      "calendar": "sun_thu_utc",
+      "date": "2026-11-15",
+      "want": true
+    },
+    {
+      "calendar": "sun_thu_utc",
+      "date": "2026-11-13",
+      "want": false
+    },
+    {
+      "calendar": "wed_only_holiday_utc",
+      "date": "2026-11-18",
+      "want": false
+    },
+    {
+      "calendar": "wed_only_holiday_utc",
+      "date": "2026-11-25",
+      "want": true
+    },
+    {
+      "calendar": "year_end_utc",
+      "date": "2026-12-25",
+      "want": false
+    },
+    {
+      "calendar": "year_end_utc",
+      "date": "2026-12-29",
+      "want": true
+    },
+    {
+      "calendar": "year_end_utc",
+      "date": "2027-01-01",
+      "want": false
+    }
+  ]
+}
