@@ -51,6 +51,28 @@ first good check resumes them with their deadlines moved on. Both moves are audi
 Every replica runs the saga timer, but only the one holding the engine's Postgres advisory lock
 ticks. When it goes, the lock is released with its connection and another replica takes over.
 
+## The stage notice sweeper
+
+Every `STAGE_NOTICE_SWEEP_MINUTES` (15 by default) the sweeper reads the pending seats that are past
+their due date on runs in review and sends the reminders and escalations the stage asks for
+(`remind_every_days`, `escalate_after_days`). Every replica starts it, but only the one holding its
+own Postgres advisory lock sweeps, separate from the timer's lock; when that replica goes, the lock
+goes with its connection and another takes over.
+
+- **Progress:** `approval_assignments.reminders_sent` is the last reminder number published for the
+  seat and `reminder_at` is when the next falls. A number is recorded only after its publish
+  succeeded, so a failed publish is retried at the next sweep. A crash between the publish and the
+  record can send the same number once more; the consumer de-duplicates on it.
+- **Escalation:** a stage escalates once per run, recorded in `stage_escalations`. If an owner's
+  notice fails, nothing is recorded and the next sweep sends again (an owner already told is
+  de-duplicated by the consumer). A stage due for escalation whose category has no owner logs a
+  warning each sweep and is not recorded, so an owner added later is still told.
+- **Logs:** the sweep logs its start, each skipped stage at trace or debug, every publish, and every
+  error with the run and stage ids. Look for `stage notice sweep: done` for the counts.
+- **No notice arrives:** check the stage sets `sla_days` and one of the two settings and does not
+  reject on breach, the run is `in_review`, the stage is not already decided, the broker is up, and
+  obligations has bound `workflow.approval_reminder` and `workflow.stage_escalated`.
+
 ## A run stuck in review
 
 1. `GetStatus` for the version: which stage it's on and who holds its seats.

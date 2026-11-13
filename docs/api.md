@@ -81,10 +81,25 @@ calendar never moves a run in flight. Zero or unset uses the service-wide SLA. S
 calendar, the run is submitted without a pin and counts calendar days; `reject_on_sla_breach` rejects instead of escalating when it passes.
 
 `remind_every_days` and `escalate_after_days` are whole working days, 0 to 365, counted past the due
-date, and 0 means off. They are saved and returned with the stage but nothing sends a reminder or an
-escalation yet. Either one needs `sla_days`, and neither can be set on a stage with
+date, and 0 means off. Either one needs `sla_days`, and neither can be set on a stage with
 `reject_on_sla_breach` (it rejects at the due date, so the stage is never overdue): a save that does
 either is refused with `InvalidArgument`. A time limit never approves.
+
+A sweeper (see the runbook) sends the notices while the run is in review and the stage is still
+undecided by its quorum. The due instant stored on the seat is the end of the due day.
+
+- **Reminders:** `workflow.approval_reminder` to each approver still pending, numbered `n` = 1, 2, ...
+  Reminder 1 falls at the due instant and reminder k+1 falls `remind_every_days` working days after
+  the day of reminder k. If the sweeper was down, only the newest elapsed number goes out. The
+  consumer de-duplicates on `<task_id>:r<n>`.
+- **Escalation:** `workflow.stage_escalated` to each category owner (the owners of the policy's home
+  category and its ancestors, not root), once per run and stage, `escalate_after_days` working days
+  after the due day. It carries how many people are still undecided.
+- **Calendar:** the run's pinned site calendar; calendar days when the run has no pin, as for the due
+  date.
+- It only notifies. It never approves, rejects, reassigns or adds a seat. Decided, paused, superseded
+  and withdrawn seats and stages that reject on breach are skipped.
+- **Audit:** `workflow.stage_reminder.sent` and `workflow.stage_escalated`, ids only.
 
 ## Change type
 

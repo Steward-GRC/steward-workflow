@@ -17,6 +17,7 @@ value that doesn't parse stops the service with every problem listed; nothing fa
 | `PROBE_PORT` | `8080` | Plain HTTP for `/livez` and `/readyz`. |
 | `STAGE_SLA_HOURS` | `72` | A stage's SLA when it sets no `sla_days`. |
 | `STAGE_REMINDER_HOURS` | `48` | When the stage's reminder falls. |
+| `STAGE_NOTICE_SWEEP_MINUTES` | `15` | How often, in whole minutes (1 or more), the sweeper looks for overdue stages to remind and escalate. Only one replica sweeps; see the runbook. |
 | `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`, `GRPC_TLS_CLIENT_CA_FILE` | empty | mTLS: the service certificate and key, and the CA peers chain to. Used both to serve and to dial core and identity. All three or none. Transport only: it grants no caller any trust. |
 | `WORKLOAD_OIDC_ISSUER` | required | The cluster's service-account token issuer, an `https` URL that must equal the token's `iss`. |
 | `WORKLOAD_OIDC_JWKS_URL` | discovered | The issuer's JWKS, when it isn't at the `jwks_uri` of `<issuer>/.well-known/openid-configuration`. `https` only. |
