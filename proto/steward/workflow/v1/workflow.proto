@@ -164,6 +164,20 @@ message StageAssignee {
   // The seat holds a veto: its reject ends the run as rejected at once. Only
   // set on a run whose workflow had opted in.
   bool veto = 6;
+  // Why the person holds the seat. UNSPECIFIED for a seat made before the
+  // source was recorded.
+  SeatSource source = 7;
+}
+
+// SeatSource says why a person holds a seat on a stage.
+enum SeatSource {
+  SEAT_SOURCE_UNSPECIFIED = 0;
+  // The stage's workflow definition names the person, as an approver or as a
+  // member of one of its groups.
+  SEAT_SOURCE_APPROVER = 1;
+  // The person owns the policy's category (or an ancestor) and joined because
+  // too few named approvers were left to meet the stage's quorum.
+  SEAT_SOURCE_CATEGORY_OWNER = 2;
 }
 
 message StageAssignees {

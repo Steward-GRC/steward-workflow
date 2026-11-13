@@ -916,7 +916,7 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			if isEntered {
 				// Entered: only the seats that were made, none when nobody was seated.
 				for _, r := range rows {
-					entry := &workflowv1.StageAssignee{UserId: r.UserID, State: r.State, GroupId: r.GroupID, Veto: r.Veto}
+					entry := &workflowv1.StageAssignee{UserId: r.UserID, State: r.State, GroupId: r.GroupID, Veto: r.Veto, Source: seatSourceToProto(r.Source)}
 					if r.DecidedComment != nil {
 						entry.Comment = *r.DecidedComment
 					}
@@ -928,11 +928,11 @@ func (s *WorkflowServer) GetStatus(ctx context.Context, req *workflowv1.GetStatu
 			} else if haveDef {
 				// Not entered yet, so no seats: show who will approve.
 				for _, uid := range eligibility.StagePool(stage, run.AncestorCategoryIDs) {
-					sa.Assignees = append(sa.Assignees, &workflowv1.StageAssignee{UserId: uid, State: "pending"})
+					sa.Assignees = append(sa.Assignees, &workflowv1.StageAssignee{UserId: uid, State: "pending", Source: workflowv1.SeatSource_SEAT_SOURCE_APPROVER})
 				}
 				for _, unit := range stage.GroupUnits {
 					for _, uid := range unit.Members {
-						sa.Assignees = append(sa.Assignees, &workflowv1.StageAssignee{UserId: uid, State: "pending", GroupId: unit.GroupID})
+						sa.Assignees = append(sa.Assignees, &workflowv1.StageAssignee{UserId: uid, State: "pending", GroupId: unit.GroupID, Source: workflowv1.SeatSource_SEAT_SOURCE_APPROVER})
 					}
 				}
 			}
@@ -1514,6 +1514,19 @@ func signalName(st workflowv1.SignalType) string {
 		return "retire"
 	default:
 		return "unknown"
+	}
+}
+
+// seatSourceToProto maps a stored seat source; "" (a seat made before it was
+// recorded) and any unknown value are UNSPECIFIED.
+func seatSourceToProto(s string) workflowv1.SeatSource {
+	switch s {
+	case store.SeatSourceApprover:
+		return workflowv1.SeatSource_SEAT_SOURCE_APPROVER
+	case store.SeatSourceCategoryOwner:
+		return workflowv1.SeatSource_SEAT_SOURCE_CATEGORY_OWNER
+	default:
+		return workflowv1.SeatSource_SEAT_SOURCE_UNSPECIFIED
 	}
 }
 

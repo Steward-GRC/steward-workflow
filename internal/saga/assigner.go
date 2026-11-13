@@ -105,6 +105,8 @@ func (a *StageAssigner) WithLogger(l log.Logger) *StageAssigner {
 type seatPlan struct {
 	userID, groupID string
 	veto            bool
+	// source is why the person holds the seat (store.SeatSource*).
+	source string
 }
 
 // AssignStage creates the stage's seats. It reads the version and the pinned
@@ -175,13 +177,22 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 	}
 	var plan []seatPlan
 	for _, uid := range individuals {
-		plan = append(plan, seatPlan{userID: uid, veto: holders[uid]})
+		// The pool is who the stage names; anyone else in individuals is an owner
+		// the backstop added to make up the quorum.
+		source := store.SeatSourceApprover
+		if !pool[uid] {
+			source = store.SeatSourceCategoryOwner
+		}
+		plan = append(plan, seatPlan{userID: uid, veto: holders[uid], source: source})
 	}
 	for _, u := range stage.GroupUnits {
 		for _, m := range units[u.GroupID] {
-			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID, veto: holders[m]})
+			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID, veto: holders[m], source: store.SeatSourceApprover})
 		}
 	}
+	lg.Debug("assign_stage: seat sources", log.F("policy_version_id", pvID),
+		log.F("approver_seats", countSource(plan, store.SeatSourceApprover)),
+		log.F("category_owner_seats", countSource(plan, store.SeatSourceCategoryOwner)))
 	lg.Debug("assign_stage: veto marks", log.F("policy_version_id", pvID),
 		log.F("veto_named", len(stage.VetoUserIDs)), log.F("veto_holders", len(holders)), log.F("veto_seats", countVeto(plan)))
 
@@ -198,6 +209,7 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 			UserID:          p.userID,
 			GroupID:         p.groupID,
 			Veto:            p.veto,
+			Source:          p.source,
 			AssignedAt:      now,
 			SLADeadlineAt:   slaDeadline,
 			ReminderAt:      reminder,
@@ -328,6 +340,16 @@ func countVeto(plan []seatPlan) int {
 	n := 0
 	for _, p := range plan {
 		if p.veto {
+			n++
+		}
+	}
+	return n
+}
+
+func countSource(plan []seatPlan, source string) int {
+	n := 0
+	for _, p := range plan {
+		if p.source == source {
 			n++
 		}
 	}
