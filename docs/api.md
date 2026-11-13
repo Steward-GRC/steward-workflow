@@ -43,6 +43,19 @@ The `group_id` fields on `SignalRequest`, `Decision`, `SwapAssigneeRequest`,
 `Signal` with an empty `group_id` from someone who holds no individual seat uses their only
 pending group seat.
 
+`StageAssignee.source` (`SeatSource`) says why the person holds the seat, so a client can label each
+approver:
+
+| Value | Meaning |
+| --- | --- |
+| `SEAT_SOURCE_APPROVER` | The stage's workflow definition names the person, as an approver (`approver_ids` or `approvers_by_category`) or as a group member. |
+| `SEAT_SOURCE_CATEGORY_OWNER` | The person owns the policy's category (or an ancestor) and joined as a backstop because too few named approvers were left to meet the stage quorum. An owner the definition also names stays `APPROVER`. |
+| `SEAT_SOURCE_UNSPECIFIED` | A seat made before the source was recorded. Clients show no role for it. |
+
+The source belongs to the seat, so a seat swapped to another person keeps it. A stage not yet entered
+has no seats; its preview lists the named people, all as `APPROVER`. Nothing seats a site admin as
+such today, so there is no value for it; one is added when something does.
+
 ## Calls
 
 | RPC | What it does |

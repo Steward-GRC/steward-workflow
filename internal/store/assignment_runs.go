@@ -41,7 +41,22 @@ type AssignmentRow struct {
 	// RemindersSent is the last overdue reminder number published for the seat
 	// (steward-workflow#76); 0 before the first.
 	RemindersSent int
+	// Source says why the person holds the seat: SeatSourceApprover,
+	// SeatSourceCategoryOwner, or "" for a seat made before it was recorded
+	// (steward-workflow#80).
+	Source string
 }
+
+// Why a seat was made. The values are stored in approval_assignments.seat_source
+// and never change; "" is a seat from before the column.
+const (
+	// SeatSourceApprover is a person the stage's workflow definition names, as
+	// an approver or as a member of one of its groups.
+	SeatSourceApprover = "approver"
+	// SeatSourceCategoryOwner is an owner of the policy's category who joined
+	// because too few named approvers were left to meet the quorum.
+	SeatSourceCategoryOwner = "category_owner"
+)
 
 // HistoryEntry is one assignment_history row.
 type HistoryEntry struct {
@@ -109,14 +124,14 @@ type Assignments struct{ db *postgres.DB }
 func NewAssignments(db *postgres.DB) *Assignments { return &Assignments{db: db} }
 
 const seatColumns = `id, policy_version_id, stage_index, user_id, group_id, assigned_at, sla_deadline_at, reminder_at,
-	state, decided_at, decided_comment, bulk_batch_id, paused_remaining_sla_seconds, paused_remaining_reminder_seconds, veto, reminders_sent`
+	state, decided_at, decided_comment, bulk_batch_id, paused_remaining_sla_seconds, paused_remaining_reminder_seconds, veto, reminders_sent, seat_source`
 
 func scanSeat(row pgx.Row) (AssignmentRow, error) {
 	var r AssignmentRow
 	err := row.Scan(&r.ID, &r.PolicyVersionID, &r.StageIndex, &r.UserID, &r.GroupID,
 		&r.AssignedAt, &r.SLADeadlineAt, &r.ReminderAt,
 		&r.State, &r.DecidedAt, &r.DecidedComment, &r.BulkBatchID,
-		&r.PausedRemainingSLASec, &r.PausedRemainingReminderS, &r.Veto, &r.RemindersSent)
+		&r.PausedRemainingSLASec, &r.PausedRemainingReminderS, &r.Veto, &r.RemindersSent, &r.Source)
 	return r, err
 }
 
@@ -150,21 +165,22 @@ func (a *Assignments) CreateAssignment(ctx context.Context, row AssignmentRow, a
 	err := a.db.RunInTx(ctx, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO approval_assignments
-			   (id, policy_version_id, stage_index, user_id, group_id, assigned_at, sla_deadline_at, reminder_at, state, veto)
-			 VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()), $7, $8, $9, $10)
+			   (id, policy_version_id, stage_index, user_id, group_id, assigned_at, sla_deadline_at, reminder_at, state, veto, seat_source)
+			 VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()), $7, $8, $9, $10, $11)
 			 ON CONFLICT (policy_version_id, stage_index, user_id, group_id) DO UPDATE SET
 			   assigned_at = COALESCE($6, now()),
 			   sla_deadline_at = $7,
 			   reminder_at = $8,
 			   state = $9,
 			   veto = $10,
+			   seat_source = $11,
 			   reminders_sent = 0,
 			   decided_at = NULL,
 			   decided_comment = NULL,
 			   bulk_batch_id = NULL
 			 RETURNING id`,
 			row.ID, row.PolicyVersionID, row.StageIndex, row.UserID, row.GroupID,
-			nullableTime(row.AssignedAt), row.SLADeadlineAt, row.ReminderAt, row.State, row.Veto,
+			nullableTime(row.AssignedAt), row.SLADeadlineAt, row.ReminderAt, row.State, row.Veto, row.Source,
 		).Scan(&row.ID); err != nil {
 			return fmt.Errorf("upsert assignment: %w", err)
 		}
@@ -430,10 +446,10 @@ func (a *Assignments) Swap(ctx context.Context, in SwapInput) (AssignmentRow, er
 	err := a.db.RunInTx(ctx, func(tx pgx.Tx) error {
 		var old AssignmentRow
 		if err := tx.QueryRow(ctx,
-			`SELECT id, policy_version_id, stage_index, user_id, group_id, veto FROM approval_assignments
+			`SELECT id, policy_version_id, stage_index, user_id, group_id, veto, seat_source FROM approval_assignments
 			  WHERE id=$1 AND state='pending' FOR UPDATE`,
 			in.OldAssignmentID,
-		).Scan(&old.ID, &old.PolicyVersionID, &old.StageIndex, &old.UserID, &old.GroupID, &old.Veto); err != nil {
+		).Scan(&old.ID, &old.PolicyVersionID, &old.StageIndex, &old.UserID, &old.GroupID, &old.Veto, &old.Source); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return fmt.Errorf("assignment %q: %w", in.OldAssignmentID, ErrSeatNotPending)
 			}
@@ -469,13 +485,15 @@ func (a *Assignments) Swap(ctx context.Context, in SwapInput) (AssignmentRow, er
 			State:           "pending",
 			// The mark belongs to the seat: whoever is swapped in holds it.
 			Veto: old.Veto,
+			// So does the source: the seat is an owner's or an approver's whoever sits in it.
+			Source: old.Source,
 		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO approval_assignments
-			   (id, policy_version_id, stage_index, user_id, group_id, sla_deadline_at, reminder_at, state, veto)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)`,
+			   (id, policy_version_id, stage_index, user_id, group_id, sla_deadline_at, reminder_at, state, veto, seat_source)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9)`,
 			newRow.ID, newRow.PolicyVersionID, newRow.StageIndex, newRow.UserID, newRow.GroupID,
-			newRow.SLADeadlineAt, newRow.ReminderAt, newRow.Veto,
+			newRow.SLADeadlineAt, newRow.ReminderAt, newRow.Veto, newRow.Source,
 		); err != nil {
 			return fmt.Errorf("insert new assignment: %w", err)
 		}

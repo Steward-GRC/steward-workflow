@@ -25,6 +25,60 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SeatSource says why a person holds a seat on a stage.
+type SeatSource int32
+
+const (
+	SeatSource_SEAT_SOURCE_UNSPECIFIED SeatSource = 0
+	// The stage's workflow definition names the person, as an approver or as a
+	// member of one of its groups.
+	SeatSource_SEAT_SOURCE_APPROVER SeatSource = 1
+	// The person owns the policy's category (or an ancestor) and joined because
+	// too few named approvers were left to meet the stage's quorum.
+	SeatSource_SEAT_SOURCE_CATEGORY_OWNER SeatSource = 2
+)
+
+// Enum value maps for SeatSource.
+var (
+	SeatSource_name = map[int32]string{
+		0: "SEAT_SOURCE_UNSPECIFIED",
+		1: "SEAT_SOURCE_APPROVER",
+		2: "SEAT_SOURCE_CATEGORY_OWNER",
+	}
+	SeatSource_value = map[string]int32{
+		"SEAT_SOURCE_UNSPECIFIED":    0,
+		"SEAT_SOURCE_APPROVER":       1,
+		"SEAT_SOURCE_CATEGORY_OWNER": 2,
+	}
+)
+
+func (x SeatSource) Enum() *SeatSource {
+	p := new(SeatSource)
+	*p = x
+	return p
+}
+
+func (x SeatSource) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SeatSource) Descriptor() protoreflect.EnumDescriptor {
+	return file_steward_workflow_v1_workflow_proto_enumTypes[0].Descriptor()
+}
+
+func (SeatSource) Type() protoreflect.EnumType {
+	return &file_steward_workflow_v1_workflow_proto_enumTypes[0]
+}
+
+func (x SeatSource) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SeatSource.Descriptor instead.
+func (SeatSource) EnumDescriptor() ([]byte, []int) {
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{0}
+}
+
 // InitiatorRole is why the caller may reassign a seat.
 type InitiatorRole int32
 
@@ -62,11 +116,11 @@ func (x InitiatorRole) String() string {
 }
 
 func (InitiatorRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_steward_workflow_v1_workflow_proto_enumTypes[0].Descriptor()
+	return file_steward_workflow_v1_workflow_proto_enumTypes[1].Descriptor()
 }
 
 func (InitiatorRole) Type() protoreflect.EnumType {
-	return &file_steward_workflow_v1_workflow_proto_enumTypes[0]
+	return &file_steward_workflow_v1_workflow_proto_enumTypes[1]
 }
 
 func (x InitiatorRole) Number() protoreflect.EnumNumber {
@@ -75,7 +129,7 @@ func (x InitiatorRole) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use InitiatorRole.Descriptor instead.
 func (InitiatorRole) EnumDescriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{0}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{1}
 }
 
 // DecisionType is a bulk decision: approve or reject only.
@@ -112,11 +166,11 @@ func (x DecisionType) String() string {
 }
 
 func (DecisionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_steward_workflow_v1_workflow_proto_enumTypes[1].Descriptor()
+	return file_steward_workflow_v1_workflow_proto_enumTypes[2].Descriptor()
 }
 
 func (DecisionType) Type() protoreflect.EnumType {
-	return &file_steward_workflow_v1_workflow_proto_enumTypes[1]
+	return &file_steward_workflow_v1_workflow_proto_enumTypes[2]
 }
 
 func (x DecisionType) Number() protoreflect.EnumNumber {
@@ -125,7 +179,7 @@ func (x DecisionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DecisionType.Descriptor instead.
 func (DecisionType) EnumDescriptor() ([]byte, []int) {
-	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{1}
+	return file_steward_workflow_v1_workflow_proto_rawDescGZIP(), []int{2}
 }
 
 type ResolveWorkflowRequest struct {
@@ -563,7 +617,10 @@ type StageAssignee struct {
 	GroupId string `protobuf:"bytes,5,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
 	// The seat holds a veto: its reject ends the run as rejected at once. Only
 	// set on a run whose workflow had opted in.
-	Veto          bool `protobuf:"varint,6,opt,name=veto,proto3" json:"veto,omitempty"`
+	Veto bool `protobuf:"varint,6,opt,name=veto,proto3" json:"veto,omitempty"`
+	// Why the person holds the seat. UNSPECIFIED for a seat made before the
+	// source was recorded.
+	Source        SeatSource `protobuf:"varint,7,opt,name=source,proto3,enum=steward.workflow.v1.SeatSource" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -638,6 +695,13 @@ func (x *StageAssignee) GetVeto() bool {
 		return x.Veto
 	}
 	return false
+}
+
+func (x *StageAssignee) GetSource() SeatSource {
+	if x != nil {
+		return x.Source
+	}
+	return SeatSource_SEAT_SOURCE_UNSPECIFIED
 }
 
 type StageAssignees struct {
@@ -2478,7 +2542,7 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\bgroup_id\x18\a \x01(\tR\agroupId\"\x10\n" +
 	"\x0eSignalResponse\">\n" +
 	"\x10GetStatusRequest\x12*\n" +
-	"\x11policy_version_id\x18\x01 \x01(\tR\x0fpolicyVersionId\"\xc2\x01\n" +
+	"\x11policy_version_id\x18\x01 \x01(\tR\x0fpolicyVersionId\"\xfb\x01\n" +
 	"\rStageAssignee\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x18\n" +
@@ -2486,7 +2550,8 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
 	"decided_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12\x19\n" +
 	"\bgroup_id\x18\x05 \x01(\tR\agroupId\x12\x12\n" +
-	"\x04veto\x18\x06 \x01(\bR\x04veto\"R\n" +
+	"\x04veto\x18\x06 \x01(\bR\x04veto\x127\n" +
+	"\x06source\x18\a \x01(\x0e2\x1f.steward.workflow.v1.SeatSourceR\x06source\"R\n" +
 	"\x0eStageAssignees\x12@\n" +
 	"\tassignees\x18\x01 \x03(\v2\".steward.workflow.v1.StageAssigneeR\tassignees\"\xca\x01\n" +
 	"\x11StageUnitProgress\x12\x19\n" +
@@ -2629,7 +2694,12 @@ const file_steward_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x16assignments_reassigned\x18\x01 \x01(\x05R\x15assignmentsReassigned\x12/\n" +
 	"\x13assignments_deduped\x18\x02 \x01(\x05R\x12assignmentsDeduped\x12'\n" +
 	"\x0fruns_reassigned\x18\x03 \x01(\x05R\x0erunsReassigned\x12\x14\n" +
-	"\x05total\x18\x04 \x01(\x05R\x05total*\x8f\x01\n" +
+	"\x05total\x18\x04 \x01(\x05R\x05total*c\n" +
+	"\n" +
+	"SeatSource\x12\x1b\n" +
+	"\x17SEAT_SOURCE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14SEAT_SOURCE_APPROVER\x10\x01\x12\x1e\n" +
+	"\x1aSEAT_SOURCE_CATEGORY_OWNER\x10\x02*\x8f\x01\n" +
 	"\rInitiatorRole\x12\x1e\n" +
 	"\x1aINITIATOR_ROLE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14INITIATOR_ROLE_ADMIN\x10\x01\x12 \n" +
@@ -2672,128 +2742,130 @@ func file_steward_workflow_v1_workflow_proto_rawDescGZIP() []byte {
 	return file_steward_workflow_v1_workflow_proto_rawDescData
 }
 
-var file_steward_workflow_v1_workflow_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_steward_workflow_v1_workflow_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_steward_workflow_v1_workflow_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
 var file_steward_workflow_v1_workflow_proto_goTypes = []any{
-	(InitiatorRole)(0),                        // 0: steward.workflow.v1.InitiatorRole
-	(DecisionType)(0),                         // 1: steward.workflow.v1.DecisionType
-	(*ResolveWorkflowRequest)(nil),            // 2: steward.workflow.v1.ResolveWorkflowRequest
-	(*ResolveWorkflowResponse)(nil),           // 3: steward.workflow.v1.ResolveWorkflowResponse
-	(*SubmitRequest)(nil),                     // 4: steward.workflow.v1.SubmitRequest
-	(*SubmitResponse)(nil),                    // 5: steward.workflow.v1.SubmitResponse
-	(*SignalRequest)(nil),                     // 6: steward.workflow.v1.SignalRequest
-	(*SignalResponse)(nil),                    // 7: steward.workflow.v1.SignalResponse
-	(*GetStatusRequest)(nil),                  // 8: steward.workflow.v1.GetStatusRequest
-	(*StageAssignee)(nil),                     // 9: steward.workflow.v1.StageAssignee
-	(*StageAssignees)(nil),                    // 10: steward.workflow.v1.StageAssignees
-	(*StageUnitProgress)(nil),                 // 11: steward.workflow.v1.StageUnitProgress
-	(*StageUnitProgressList)(nil),             // 12: steward.workflow.v1.StageUnitProgressList
-	(*GetStatusResponse)(nil),                 // 13: steward.workflow.v1.GetStatusResponse
-	(*StageProgress)(nil),                     // 14: steward.workflow.v1.StageProgress
-	(*PendingTask)(nil),                       // 15: steward.workflow.v1.PendingTask
-	(*ListPendingTasksRequest)(nil),           // 16: steward.workflow.v1.ListPendingTasksRequest
-	(*ListPendingTasksResponse)(nil),          // 17: steward.workflow.v1.ListPendingTasksResponse
-	(*UpcomingTask)(nil),                      // 18: steward.workflow.v1.UpcomingTask
-	(*ListUpcomingTasksRequest)(nil),          // 19: steward.workflow.v1.ListUpcomingTasksRequest
-	(*ListUpcomingTasksResponse)(nil),         // 20: steward.workflow.v1.ListUpcomingTasksResponse
-	(*DecidedApproval)(nil),                   // 21: steward.workflow.v1.DecidedApproval
-	(*ListDecidedApprovalsRequest)(nil),       // 22: steward.workflow.v1.ListDecidedApprovalsRequest
-	(*ListDecidedApprovalsResponse)(nil),      // 23: steward.workflow.v1.ListDecidedApprovalsResponse
-	(*SwapAssigneeRequest)(nil),               // 24: steward.workflow.v1.SwapAssigneeRequest
-	(*SwapAssigneeResponse)(nil),              // 25: steward.workflow.v1.SwapAssigneeResponse
-	(*Decision)(nil),                          // 26: steward.workflow.v1.Decision
-	(*BulkDecideRequest)(nil),                 // 27: steward.workflow.v1.BulkDecideRequest
-	(*DecisionResult)(nil),                    // 28: steward.workflow.v1.DecisionResult
-	(*BulkDecideResponse)(nil),                // 29: steward.workflow.v1.BulkDecideResponse
-	(*GetAssignmentHistoryRequest)(nil),       // 30: steward.workflow.v1.GetAssignmentHistoryRequest
-	(*AssignmentHistoryEntry)(nil),            // 31: steward.workflow.v1.AssignmentHistoryEntry
-	(*GetAssignmentHistoryResponse)(nil),      // 32: steward.workflow.v1.GetAssignmentHistoryResponse
-	(*GetStageEligiblePoolRequest)(nil),       // 33: steward.workflow.v1.GetStageEligiblePoolRequest
-	(*GetStageEligiblePoolResponse)(nil),      // 34: steward.workflow.v1.GetStageEligiblePoolResponse
-	(*ReassignUserWorkflowItemsRequest)(nil),  // 35: steward.workflow.v1.ReassignUserWorkflowItemsRequest
-	(*ReassignUserWorkflowItemsResponse)(nil), // 36: steward.workflow.v1.ReassignUserWorkflowItemsResponse
-	(ChangeType)(0),                           // 37: steward.workflow.v1.ChangeType
-	(SignalType)(0),                           // 38: steward.workflow.v1.SignalType
-	(*timestamppb.Timestamp)(nil),             // 39: google.protobuf.Timestamp
-	(ApprovalStatus)(0),                       // 40: steward.workflow.v1.ApprovalStatus
-	(*ListWorkflowDefsRequest)(nil),           // 41: steward.workflow.v1.ListWorkflowDefsRequest
-	(*GetWorkflowDefRequest)(nil),             // 42: steward.workflow.v1.GetWorkflowDefRequest
-	(*CreateWorkflowDefRequest)(nil),          // 43: steward.workflow.v1.CreateWorkflowDefRequest
-	(*UpdateWorkflowDefRequest)(nil),          // 44: steward.workflow.v1.UpdateWorkflowDefRequest
-	(*ArchiveWorkflowDefRequest)(nil),         // 45: steward.workflow.v1.ArchiveWorkflowDefRequest
-	(*DeleteWorkflowDefRequest)(nil),          // 46: steward.workflow.v1.DeleteWorkflowDefRequest
-	(*ListWorkflowDefsResponse)(nil),          // 47: steward.workflow.v1.ListWorkflowDefsResponse
-	(*GetWorkflowDefResponse)(nil),            // 48: steward.workflow.v1.GetWorkflowDefResponse
-	(*CreateWorkflowDefResponse)(nil),         // 49: steward.workflow.v1.CreateWorkflowDefResponse
-	(*UpdateWorkflowDefResponse)(nil),         // 50: steward.workflow.v1.UpdateWorkflowDefResponse
-	(*ArchiveWorkflowDefResponse)(nil),        // 51: steward.workflow.v1.ArchiveWorkflowDefResponse
-	(*DeleteWorkflowDefResponse)(nil),         // 52: steward.workflow.v1.DeleteWorkflowDefResponse
+	(SeatSource)(0),                           // 0: steward.workflow.v1.SeatSource
+	(InitiatorRole)(0),                        // 1: steward.workflow.v1.InitiatorRole
+	(DecisionType)(0),                         // 2: steward.workflow.v1.DecisionType
+	(*ResolveWorkflowRequest)(nil),            // 3: steward.workflow.v1.ResolveWorkflowRequest
+	(*ResolveWorkflowResponse)(nil),           // 4: steward.workflow.v1.ResolveWorkflowResponse
+	(*SubmitRequest)(nil),                     // 5: steward.workflow.v1.SubmitRequest
+	(*SubmitResponse)(nil),                    // 6: steward.workflow.v1.SubmitResponse
+	(*SignalRequest)(nil),                     // 7: steward.workflow.v1.SignalRequest
+	(*SignalResponse)(nil),                    // 8: steward.workflow.v1.SignalResponse
+	(*GetStatusRequest)(nil),                  // 9: steward.workflow.v1.GetStatusRequest
+	(*StageAssignee)(nil),                     // 10: steward.workflow.v1.StageAssignee
+	(*StageAssignees)(nil),                    // 11: steward.workflow.v1.StageAssignees
+	(*StageUnitProgress)(nil),                 // 12: steward.workflow.v1.StageUnitProgress
+	(*StageUnitProgressList)(nil),             // 13: steward.workflow.v1.StageUnitProgressList
+	(*GetStatusResponse)(nil),                 // 14: steward.workflow.v1.GetStatusResponse
+	(*StageProgress)(nil),                     // 15: steward.workflow.v1.StageProgress
+	(*PendingTask)(nil),                       // 16: steward.workflow.v1.PendingTask
+	(*ListPendingTasksRequest)(nil),           // 17: steward.workflow.v1.ListPendingTasksRequest
+	(*ListPendingTasksResponse)(nil),          // 18: steward.workflow.v1.ListPendingTasksResponse
+	(*UpcomingTask)(nil),                      // 19: steward.workflow.v1.UpcomingTask
+	(*ListUpcomingTasksRequest)(nil),          // 20: steward.workflow.v1.ListUpcomingTasksRequest
+	(*ListUpcomingTasksResponse)(nil),         // 21: steward.workflow.v1.ListUpcomingTasksResponse
+	(*DecidedApproval)(nil),                   // 22: steward.workflow.v1.DecidedApproval
+	(*ListDecidedApprovalsRequest)(nil),       // 23: steward.workflow.v1.ListDecidedApprovalsRequest
+	(*ListDecidedApprovalsResponse)(nil),      // 24: steward.workflow.v1.ListDecidedApprovalsResponse
+	(*SwapAssigneeRequest)(nil),               // 25: steward.workflow.v1.SwapAssigneeRequest
+	(*SwapAssigneeResponse)(nil),              // 26: steward.workflow.v1.SwapAssigneeResponse
+	(*Decision)(nil),                          // 27: steward.workflow.v1.Decision
+	(*BulkDecideRequest)(nil),                 // 28: steward.workflow.v1.BulkDecideRequest
+	(*DecisionResult)(nil),                    // 29: steward.workflow.v1.DecisionResult
+	(*BulkDecideResponse)(nil),                // 30: steward.workflow.v1.BulkDecideResponse
+	(*GetAssignmentHistoryRequest)(nil),       // 31: steward.workflow.v1.GetAssignmentHistoryRequest
+	(*AssignmentHistoryEntry)(nil),            // 32: steward.workflow.v1.AssignmentHistoryEntry
+	(*GetAssignmentHistoryResponse)(nil),      // 33: steward.workflow.v1.GetAssignmentHistoryResponse
+	(*GetStageEligiblePoolRequest)(nil),       // 34: steward.workflow.v1.GetStageEligiblePoolRequest
+	(*GetStageEligiblePoolResponse)(nil),      // 35: steward.workflow.v1.GetStageEligiblePoolResponse
+	(*ReassignUserWorkflowItemsRequest)(nil),  // 36: steward.workflow.v1.ReassignUserWorkflowItemsRequest
+	(*ReassignUserWorkflowItemsResponse)(nil), // 37: steward.workflow.v1.ReassignUserWorkflowItemsResponse
+	(ChangeType)(0),                           // 38: steward.workflow.v1.ChangeType
+	(SignalType)(0),                           // 39: steward.workflow.v1.SignalType
+	(*timestamppb.Timestamp)(nil),             // 40: google.protobuf.Timestamp
+	(ApprovalStatus)(0),                       // 41: steward.workflow.v1.ApprovalStatus
+	(*ListWorkflowDefsRequest)(nil),           // 42: steward.workflow.v1.ListWorkflowDefsRequest
+	(*GetWorkflowDefRequest)(nil),             // 43: steward.workflow.v1.GetWorkflowDefRequest
+	(*CreateWorkflowDefRequest)(nil),          // 44: steward.workflow.v1.CreateWorkflowDefRequest
+	(*UpdateWorkflowDefRequest)(nil),          // 45: steward.workflow.v1.UpdateWorkflowDefRequest
+	(*ArchiveWorkflowDefRequest)(nil),         // 46: steward.workflow.v1.ArchiveWorkflowDefRequest
+	(*DeleteWorkflowDefRequest)(nil),          // 47: steward.workflow.v1.DeleteWorkflowDefRequest
+	(*ListWorkflowDefsResponse)(nil),          // 48: steward.workflow.v1.ListWorkflowDefsResponse
+	(*GetWorkflowDefResponse)(nil),            // 49: steward.workflow.v1.GetWorkflowDefResponse
+	(*CreateWorkflowDefResponse)(nil),         // 50: steward.workflow.v1.CreateWorkflowDefResponse
+	(*UpdateWorkflowDefResponse)(nil),         // 51: steward.workflow.v1.UpdateWorkflowDefResponse
+	(*ArchiveWorkflowDefResponse)(nil),        // 52: steward.workflow.v1.ArchiveWorkflowDefResponse
+	(*DeleteWorkflowDefResponse)(nil),         // 53: steward.workflow.v1.DeleteWorkflowDefResponse
 }
 var file_steward_workflow_v1_workflow_proto_depIdxs = []int32{
-	37, // 0: steward.workflow.v1.SubmitRequest.change_type:type_name -> steward.workflow.v1.ChangeType
-	38, // 1: steward.workflow.v1.SignalRequest.signal:type_name -> steward.workflow.v1.SignalType
-	39, // 2: steward.workflow.v1.StageAssignee.decided_at:type_name -> google.protobuf.Timestamp
-	9,  // 3: steward.workflow.v1.StageAssignees.assignees:type_name -> steward.workflow.v1.StageAssignee
-	11, // 4: steward.workflow.v1.StageUnitProgressList.units:type_name -> steward.workflow.v1.StageUnitProgress
-	40, // 5: steward.workflow.v1.GetStatusResponse.status:type_name -> steward.workflow.v1.ApprovalStatus
-	10, // 6: steward.workflow.v1.GetStatusResponse.stage_assignees:type_name -> steward.workflow.v1.StageAssignees
-	12, // 7: steward.workflow.v1.GetStatusResponse.stage_unit_progress:type_name -> steward.workflow.v1.StageUnitProgressList
-	39, // 8: steward.workflow.v1.GetStatusResponse.submitted_at:type_name -> google.protobuf.Timestamp
-	14, // 9: steward.workflow.v1.GetStatusResponse.stage_progress:type_name -> steward.workflow.v1.StageProgress
-	39, // 10: steward.workflow.v1.StageProgress.due_at:type_name -> google.protobuf.Timestamp
-	39, // 11: steward.workflow.v1.PendingTask.due_at:type_name -> google.protobuf.Timestamp
-	15, // 12: steward.workflow.v1.ListPendingTasksResponse.tasks:type_name -> steward.workflow.v1.PendingTask
-	18, // 13: steward.workflow.v1.ListUpcomingTasksResponse.tasks:type_name -> steward.workflow.v1.UpcomingTask
-	39, // 14: steward.workflow.v1.DecidedApproval.decided_at:type_name -> google.protobuf.Timestamp
-	21, // 15: steward.workflow.v1.ListDecidedApprovalsResponse.approvals:type_name -> steward.workflow.v1.DecidedApproval
-	0,  // 16: steward.workflow.v1.SwapAssigneeRequest.initiator_role:type_name -> steward.workflow.v1.InitiatorRole
-	39, // 17: steward.workflow.v1.SwapAssigneeResponse.new_sla_deadline_at:type_name -> google.protobuf.Timestamp
-	1,  // 18: steward.workflow.v1.Decision.decision:type_name -> steward.workflow.v1.DecisionType
-	26, // 19: steward.workflow.v1.BulkDecideRequest.decisions:type_name -> steward.workflow.v1.Decision
-	28, // 20: steward.workflow.v1.BulkDecideResponse.results:type_name -> steward.workflow.v1.DecisionResult
-	39, // 21: steward.workflow.v1.AssignmentHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
-	31, // 22: steward.workflow.v1.GetAssignmentHistoryResponse.entries:type_name -> steward.workflow.v1.AssignmentHistoryEntry
-	4,  // 23: steward.workflow.v1.WorkflowService.Submit:input_type -> steward.workflow.v1.SubmitRequest
-	6,  // 24: steward.workflow.v1.WorkflowService.Signal:input_type -> steward.workflow.v1.SignalRequest
-	8,  // 25: steward.workflow.v1.WorkflowService.GetStatus:input_type -> steward.workflow.v1.GetStatusRequest
-	16, // 26: steward.workflow.v1.WorkflowService.ListPendingTasks:input_type -> steward.workflow.v1.ListPendingTasksRequest
-	19, // 27: steward.workflow.v1.WorkflowService.ListUpcomingTasks:input_type -> steward.workflow.v1.ListUpcomingTasksRequest
-	22, // 28: steward.workflow.v1.WorkflowService.ListDecidedApprovals:input_type -> steward.workflow.v1.ListDecidedApprovalsRequest
-	24, // 29: steward.workflow.v1.WorkflowService.SwapAssignee:input_type -> steward.workflow.v1.SwapAssigneeRequest
-	27, // 30: steward.workflow.v1.WorkflowService.BulkDecide:input_type -> steward.workflow.v1.BulkDecideRequest
-	30, // 31: steward.workflow.v1.WorkflowService.GetAssignmentHistory:input_type -> steward.workflow.v1.GetAssignmentHistoryRequest
-	33, // 32: steward.workflow.v1.WorkflowService.GetStageEligiblePool:input_type -> steward.workflow.v1.GetStageEligiblePoolRequest
-	35, // 33: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:input_type -> steward.workflow.v1.ReassignUserWorkflowItemsRequest
-	41, // 34: steward.workflow.v1.WorkflowService.ListWorkflowDefs:input_type -> steward.workflow.v1.ListWorkflowDefsRequest
-	42, // 35: steward.workflow.v1.WorkflowService.GetWorkflowDef:input_type -> steward.workflow.v1.GetWorkflowDefRequest
-	43, // 36: steward.workflow.v1.WorkflowService.CreateWorkflowDef:input_type -> steward.workflow.v1.CreateWorkflowDefRequest
-	44, // 37: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:input_type -> steward.workflow.v1.UpdateWorkflowDefRequest
-	45, // 38: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:input_type -> steward.workflow.v1.ArchiveWorkflowDefRequest
-	46, // 39: steward.workflow.v1.WorkflowService.DeleteWorkflowDef:input_type -> steward.workflow.v1.DeleteWorkflowDefRequest
-	2,  // 40: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
-	5,  // 41: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
-	7,  // 42: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
-	13, // 43: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
-	17, // 44: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
-	20, // 45: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
-	23, // 46: steward.workflow.v1.WorkflowService.ListDecidedApprovals:output_type -> steward.workflow.v1.ListDecidedApprovalsResponse
-	25, // 47: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
-	29, // 48: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
-	32, // 49: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
-	34, // 50: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
-	36, // 51: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
-	47, // 52: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
-	48, // 53: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
-	49, // 54: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
-	50, // 55: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
-	51, // 56: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
-	52, // 57: steward.workflow.v1.WorkflowService.DeleteWorkflowDef:output_type -> steward.workflow.v1.DeleteWorkflowDefResponse
-	3,  // 58: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
-	41, // [41:59] is the sub-list for method output_type
-	23, // [23:41] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	38, // 0: steward.workflow.v1.SubmitRequest.change_type:type_name -> steward.workflow.v1.ChangeType
+	39, // 1: steward.workflow.v1.SignalRequest.signal:type_name -> steward.workflow.v1.SignalType
+	40, // 2: steward.workflow.v1.StageAssignee.decided_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: steward.workflow.v1.StageAssignee.source:type_name -> steward.workflow.v1.SeatSource
+	10, // 4: steward.workflow.v1.StageAssignees.assignees:type_name -> steward.workflow.v1.StageAssignee
+	12, // 5: steward.workflow.v1.StageUnitProgressList.units:type_name -> steward.workflow.v1.StageUnitProgress
+	41, // 6: steward.workflow.v1.GetStatusResponse.status:type_name -> steward.workflow.v1.ApprovalStatus
+	11, // 7: steward.workflow.v1.GetStatusResponse.stage_assignees:type_name -> steward.workflow.v1.StageAssignees
+	13, // 8: steward.workflow.v1.GetStatusResponse.stage_unit_progress:type_name -> steward.workflow.v1.StageUnitProgressList
+	40, // 9: steward.workflow.v1.GetStatusResponse.submitted_at:type_name -> google.protobuf.Timestamp
+	15, // 10: steward.workflow.v1.GetStatusResponse.stage_progress:type_name -> steward.workflow.v1.StageProgress
+	40, // 11: steward.workflow.v1.StageProgress.due_at:type_name -> google.protobuf.Timestamp
+	40, // 12: steward.workflow.v1.PendingTask.due_at:type_name -> google.protobuf.Timestamp
+	16, // 13: steward.workflow.v1.ListPendingTasksResponse.tasks:type_name -> steward.workflow.v1.PendingTask
+	19, // 14: steward.workflow.v1.ListUpcomingTasksResponse.tasks:type_name -> steward.workflow.v1.UpcomingTask
+	40, // 15: steward.workflow.v1.DecidedApproval.decided_at:type_name -> google.protobuf.Timestamp
+	22, // 16: steward.workflow.v1.ListDecidedApprovalsResponse.approvals:type_name -> steward.workflow.v1.DecidedApproval
+	1,  // 17: steward.workflow.v1.SwapAssigneeRequest.initiator_role:type_name -> steward.workflow.v1.InitiatorRole
+	40, // 18: steward.workflow.v1.SwapAssigneeResponse.new_sla_deadline_at:type_name -> google.protobuf.Timestamp
+	2,  // 19: steward.workflow.v1.Decision.decision:type_name -> steward.workflow.v1.DecisionType
+	27, // 20: steward.workflow.v1.BulkDecideRequest.decisions:type_name -> steward.workflow.v1.Decision
+	29, // 21: steward.workflow.v1.BulkDecideResponse.results:type_name -> steward.workflow.v1.DecisionResult
+	40, // 22: steward.workflow.v1.AssignmentHistoryEntry.created_at:type_name -> google.protobuf.Timestamp
+	32, // 23: steward.workflow.v1.GetAssignmentHistoryResponse.entries:type_name -> steward.workflow.v1.AssignmentHistoryEntry
+	5,  // 24: steward.workflow.v1.WorkflowService.Submit:input_type -> steward.workflow.v1.SubmitRequest
+	7,  // 25: steward.workflow.v1.WorkflowService.Signal:input_type -> steward.workflow.v1.SignalRequest
+	9,  // 26: steward.workflow.v1.WorkflowService.GetStatus:input_type -> steward.workflow.v1.GetStatusRequest
+	17, // 27: steward.workflow.v1.WorkflowService.ListPendingTasks:input_type -> steward.workflow.v1.ListPendingTasksRequest
+	20, // 28: steward.workflow.v1.WorkflowService.ListUpcomingTasks:input_type -> steward.workflow.v1.ListUpcomingTasksRequest
+	23, // 29: steward.workflow.v1.WorkflowService.ListDecidedApprovals:input_type -> steward.workflow.v1.ListDecidedApprovalsRequest
+	25, // 30: steward.workflow.v1.WorkflowService.SwapAssignee:input_type -> steward.workflow.v1.SwapAssigneeRequest
+	28, // 31: steward.workflow.v1.WorkflowService.BulkDecide:input_type -> steward.workflow.v1.BulkDecideRequest
+	31, // 32: steward.workflow.v1.WorkflowService.GetAssignmentHistory:input_type -> steward.workflow.v1.GetAssignmentHistoryRequest
+	34, // 33: steward.workflow.v1.WorkflowService.GetStageEligiblePool:input_type -> steward.workflow.v1.GetStageEligiblePoolRequest
+	36, // 34: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:input_type -> steward.workflow.v1.ReassignUserWorkflowItemsRequest
+	42, // 35: steward.workflow.v1.WorkflowService.ListWorkflowDefs:input_type -> steward.workflow.v1.ListWorkflowDefsRequest
+	43, // 36: steward.workflow.v1.WorkflowService.GetWorkflowDef:input_type -> steward.workflow.v1.GetWorkflowDefRequest
+	44, // 37: steward.workflow.v1.WorkflowService.CreateWorkflowDef:input_type -> steward.workflow.v1.CreateWorkflowDefRequest
+	45, // 38: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:input_type -> steward.workflow.v1.UpdateWorkflowDefRequest
+	46, // 39: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:input_type -> steward.workflow.v1.ArchiveWorkflowDefRequest
+	47, // 40: steward.workflow.v1.WorkflowService.DeleteWorkflowDef:input_type -> steward.workflow.v1.DeleteWorkflowDefRequest
+	3,  // 41: steward.workflow.v1.WorkflowService.ResolveWorkflow:input_type -> steward.workflow.v1.ResolveWorkflowRequest
+	6,  // 42: steward.workflow.v1.WorkflowService.Submit:output_type -> steward.workflow.v1.SubmitResponse
+	8,  // 43: steward.workflow.v1.WorkflowService.Signal:output_type -> steward.workflow.v1.SignalResponse
+	14, // 44: steward.workflow.v1.WorkflowService.GetStatus:output_type -> steward.workflow.v1.GetStatusResponse
+	18, // 45: steward.workflow.v1.WorkflowService.ListPendingTasks:output_type -> steward.workflow.v1.ListPendingTasksResponse
+	21, // 46: steward.workflow.v1.WorkflowService.ListUpcomingTasks:output_type -> steward.workflow.v1.ListUpcomingTasksResponse
+	24, // 47: steward.workflow.v1.WorkflowService.ListDecidedApprovals:output_type -> steward.workflow.v1.ListDecidedApprovalsResponse
+	26, // 48: steward.workflow.v1.WorkflowService.SwapAssignee:output_type -> steward.workflow.v1.SwapAssigneeResponse
+	30, // 49: steward.workflow.v1.WorkflowService.BulkDecide:output_type -> steward.workflow.v1.BulkDecideResponse
+	33, // 50: steward.workflow.v1.WorkflowService.GetAssignmentHistory:output_type -> steward.workflow.v1.GetAssignmentHistoryResponse
+	35, // 51: steward.workflow.v1.WorkflowService.GetStageEligiblePool:output_type -> steward.workflow.v1.GetStageEligiblePoolResponse
+	37, // 52: steward.workflow.v1.WorkflowService.ReassignUserWorkflowItems:output_type -> steward.workflow.v1.ReassignUserWorkflowItemsResponse
+	48, // 53: steward.workflow.v1.WorkflowService.ListWorkflowDefs:output_type -> steward.workflow.v1.ListWorkflowDefsResponse
+	49, // 54: steward.workflow.v1.WorkflowService.GetWorkflowDef:output_type -> steward.workflow.v1.GetWorkflowDefResponse
+	50, // 55: steward.workflow.v1.WorkflowService.CreateWorkflowDef:output_type -> steward.workflow.v1.CreateWorkflowDefResponse
+	51, // 56: steward.workflow.v1.WorkflowService.UpdateWorkflowDef:output_type -> steward.workflow.v1.UpdateWorkflowDefResponse
+	52, // 57: steward.workflow.v1.WorkflowService.ArchiveWorkflowDef:output_type -> steward.workflow.v1.ArchiveWorkflowDefResponse
+	53, // 58: steward.workflow.v1.WorkflowService.DeleteWorkflowDef:output_type -> steward.workflow.v1.DeleteWorkflowDefResponse
+	4,  // 59: steward.workflow.v1.WorkflowService.ResolveWorkflow:output_type -> steward.workflow.v1.ResolveWorkflowResponse
+	42, // [42:60] is the sub-list for method output_type
+	24, // [24:42] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_steward_workflow_v1_workflow_proto_init() }
@@ -2808,7 +2880,7 @@ func file_steward_workflow_v1_workflow_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_steward_workflow_v1_workflow_proto_rawDesc), len(file_steward_workflow_v1_workflow_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   35,
 			NumExtensions: 0,
 			NumServices:   1,
