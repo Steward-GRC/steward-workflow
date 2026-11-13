@@ -25,6 +25,8 @@ type fakeDefStore struct {
 	updErr  error
 	arcErr  error
 	gcErr   error
+	delErr  error
+	deleted []string
 }
 
 func newFakeDefStore() *fakeDefStore {
@@ -95,6 +97,15 @@ func (f *fakeDefStore) Update(_ context.Context, id string, wd builder.WorkflowD
 }
 
 func (f *fakeDefStore) Archive(_ context.Context, _ string) error { return f.arcErr }
+
+func (f *fakeDefStore) Delete(_ context.Context, id string) error {
+	if f.delErr != nil {
+		return f.delErr
+	}
+	f.deleted = append(f.deleted, id)
+	delete(f.defs, id)
+	return nil
+}
 
 // ---------------------------------------------------------------------------
 // helpers

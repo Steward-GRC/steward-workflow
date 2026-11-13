@@ -18,3 +18,5 @@ the caller; every other code is sent as `Code N: Internal Error`.
 | 6010 | `SWAP_ASSIGNEE_NOT_ELIGIBLE` | reassign | the new approver isn't in the seat's pool and the request isn't an acknowledged admin reassignment | yes |
 | 6011 | `STAGE_INDEX_OUT_OF_RANGE` | stage | the stage index is below zero or past the run's stage count, usually from a page loaded before the definition changed | yes |
 | 6012 | `APPROVAL_RUN_NOT_FOUND` | stage | the policy version has no approval run, usually because it was never submitted | yes |
+| 6013 | `WORKFLOW_DEF_IN_USE` | workflow | the workflow was used by approval runs (finished ones included) or is a policy's own workflow, so deleting it would break their history or switch their approval off; archive it instead | yes |
+| 6014 | `WORKFLOW_DEF_NOT_FOUND` | workflow | no workflow has the id, usually because it was already deleted | yes |

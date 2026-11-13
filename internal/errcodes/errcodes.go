@@ -31,6 +31,8 @@ const (
 	CodeSwapAssigneeNotEligible   = 6010
 	CodeStageIndexOutOfRange      = 6011
 	CodeApprovalRunNotFound       = 6012
+	CodeWorkflowDefInUse          = 6013
+	CodeWorkflowDefNotFound       = 6014
 )
 
 // Entries returns the registry entries.
@@ -70,6 +72,12 @@ func Entries() []apperr.Entry {
 		{Code: CodeApprovalRunNotFound, Symbol: "APPROVAL_RUN_NOT_FOUND", Category: apperr.CategoryNotFound,
 			Title: "stage", Cause: "the policy version has no approval run, usually because it was never submitted",
 			UserSafe: true, Message: "This policy version has no approval run. Refresh and try again."},
+		{Code: CodeWorkflowDefInUse, Symbol: "WORKFLOW_DEF_IN_USE", Category: apperr.CategoryFailedPrecondition,
+			Title: "workflow", Cause: "the workflow was used by approval runs (finished ones included) or is a policy's own workflow, so deleting it would break their history or switch their approval off; archive it instead",
+			UserSafe: true, Message: "This workflow can't be deleted: {run_count} approval runs used it and {override_count} policies use it as their own workflow. Archive it instead."},
+		{Code: CodeWorkflowDefNotFound, Symbol: "WORKFLOW_DEF_NOT_FOUND", Category: apperr.CategoryNotFound,
+			Title: "workflow", Cause: "no workflow has the id, usually because it was already deleted",
+			UserSafe: true, Message: "This workflow no longer exists. Refresh and try again."},
 	}
 }
 

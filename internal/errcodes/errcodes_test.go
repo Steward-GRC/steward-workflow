@@ -58,6 +58,8 @@ func TestRefusalCodesKeepTheirStatusAndSymbol(t *testing.T) {
 		{errcodes.CodeSwapAssigneeNotEligible, "SWAP_ASSIGNEE_NOT_ELIGIBLE", codes.FailedPrecondition},
 		{errcodes.CodeStageIndexOutOfRange, "STAGE_INDEX_OUT_OF_RANGE", codes.InvalidArgument},
 		{errcodes.CodeApprovalRunNotFound, "APPROVAL_RUN_NOT_FOUND", codes.NotFound},
+		{errcodes.CodeWorkflowDefInUse, "WORKFLOW_DEF_IN_USE", codes.FailedPrecondition},
+		{errcodes.CodeWorkflowDefNotFound, "WORKFLOW_DEF_NOT_FOUND", codes.NotFound},
 	}
 	for _, c := range cases {
 		st := status.Convert(errcodes.New(context.Background(), c.code))

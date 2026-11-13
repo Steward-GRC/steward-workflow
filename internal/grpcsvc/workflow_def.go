@@ -5,6 +5,8 @@ package grpcsvc
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	log "github.com/Bugs5382/go-log"
 	"google.golang.org/grpc/codes"
@@ -12,6 +14,8 @@ import (
 
 	workflowv1 "github.com/Steward-GRC/steward-workflow/gen/go/steward/workflow/v1"
 	"github.com/Steward-GRC/steward-workflow/internal/builder"
+	"github.com/Steward-GRC/steward-workflow/internal/errcodes"
+	"github.com/Steward-GRC/steward-workflow/internal/store"
 )
 
 // WorkflowDefStore is the full definition store the admin calls need.
@@ -21,6 +25,7 @@ type WorkflowDefStore interface {
 	List(ctx context.Context) ([]builder.WorkflowDef, error)
 	Update(ctx context.Context, id string, wd builder.WorkflowDef) (builder.WorkflowDef, error)
 	Archive(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string) error
 }
 
 // ListWorkflowDefs returns the definitions that aren't archived.
@@ -125,6 +130,37 @@ func (s *WorkflowServer) ArchiveWorkflowDef(ctx context.Context, req *workflowv1
 	}
 	s.auditEmit.EmitActor(ctx, "workflow_def.archived", "id:"+req.GetId(), req.GetActorUserId())
 	return &workflowv1.ArchiveWorkflowDefResponse{}, nil
+}
+
+// DeleteWorkflowDef removes a definition and its kept versions. It refuses a
+// definition any run ever pinned or a policy override uses (archive it
+// instead); a category default in core is the caller's check, because workflow
+// doesn't know categories (steward-workflow#74).
+func (s *WorkflowServer) DeleteWorkflowDef(ctx context.Context, req *workflowv1.DeleteWorkflowDefRequest) (*workflowv1.DeleteWorkflowDefResponse, error) {
+	id := req.GetId()
+	if id == "" {
+		return nil, status.Error(codes.InvalidArgument, "id is required")
+	}
+	lg := s.log.Ctx(ctx)
+	lg.Debug("delete workflow def: start", log.F("workflow_def_id", id), log.F("actor_user_id", req.GetActorUserId()))
+	err := s.mustDefStore().Delete(ctx, id)
+	var inUse *store.DefInUseError
+	switch {
+	case errors.As(err, &inUse):
+		lg.Info("delete workflow def refused: in use", log.F("workflow_def_id", id),
+			log.F("run_count", inUse.Runs), log.F("override_count", inUse.Overrides))
+		return nil, errcodes.New(ctx, errcodes.CodeWorkflowDefInUse,
+			"id", id, "run_count", strconv.Itoa(inUse.Runs), "override_count", strconv.Itoa(inUse.Overrides))
+	case errors.Is(err, store.ErrWorkflowDefNotFound):
+		lg.Info("delete workflow def refused: not found", log.F("workflow_def_id", id))
+		return nil, errcodes.New(ctx, errcodes.CodeWorkflowDefNotFound, "id", id)
+	case err != nil:
+		lg.Error(err, "delete workflow def failed", log.F("workflow_def_id", id))
+		return nil, internalErr(ctx, "delete workflow def: %w", err)
+	}
+	s.auditEmit.EmitActor(ctx, "workflow_def.deleted", "id:"+id, req.GetActorUserId())
+	lg.Info("workflow def deleted", log.F("workflow_def_id", id))
+	return &workflowv1.DeleteWorkflowDefResponse{}, nil
 }
 
 // validateOverdue refuses a save in which a stage sets reminders or escalation

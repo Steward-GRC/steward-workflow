@@ -39,6 +39,7 @@ var gatewayMethods = []string{
 	workflowv1.WorkflowService_CreateWorkflowDef_FullMethodName,
 	workflowv1.WorkflowService_UpdateWorkflowDef_FullMethodName,
 	workflowv1.WorkflowService_ArchiveWorkflowDef_FullMethodName,
+	workflowv1.WorkflowService_DeleteWorkflowDef_FullMethodName,
 	workflowv1.WorkflowService_ResolveWorkflow_FullMethodName,
 }
 
