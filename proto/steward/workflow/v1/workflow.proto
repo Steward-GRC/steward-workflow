@@ -79,6 +79,14 @@ service WorkflowService {
   rpc CreateWorkflowDef(CreateWorkflowDefRequest) returns (CreateWorkflowDefResponse);
   rpc UpdateWorkflowDef(UpdateWorkflowDefRequest) returns (UpdateWorkflowDefResponse);
   rpc ArchiveWorkflowDef(ArchiveWorkflowDefRequest) returns (ArchiveWorkflowDefResponse);
+  // DeleteWorkflowDef removes a definition and all its kept versions in one
+  // transaction. It refuses a definition that any approval run ever pinned
+  // (finished runs keep reading it; archive it instead) or that a policy
+  // override points at. A category whose default it is lives in core; the
+  // caller checks that first. Refusals:
+  //   6013 WORKFLOW_DEF_IN_USE    (FailedPrecondition; metadata run_count, override_count)
+  //   6014 WORKFLOW_DEF_NOT_FOUND (NotFound; metadata id)
+  rpc DeleteWorkflowDef(DeleteWorkflowDefRequest) returns (DeleteWorkflowDefResponse);
 
   // ResolveWorkflow returns the workflow a policy would be submitted under:
   // its own override, else its home category's default. Empty means none, so

@@ -60,6 +60,7 @@ pending group seat.
 | `GetStageEligiblePool` | The people `SwapAssignee` accepts for a seat without the out-of-eligibility acknowledgement. |
 | `ReassignUserWorkflowItems` | Moves a merged account's pending and paused seats and active runs to the account it was merged into. |
 | `ListWorkflowDefs`, `GetWorkflowDef`, `CreateWorkflowDef`, `UpdateWorkflowDef`, `ArchiveWorkflowDef` | Workflow definitions. Every update bumps the version; running approvals stay on theirs. |
+| `DeleteWorkflowDef` | Removes a definition and all its kept versions in one transaction. Refused (6013, with `run_count` and `override_count`) while any approval run ever pinned it, finished runs included, or a policy override uses it; archive it instead. Unknown id is 6014. A category default lives in core, so the caller checks that first. Gateway only. |
 
 ## Definitions
 

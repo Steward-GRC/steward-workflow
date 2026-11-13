@@ -136,3 +136,10 @@ message ArchiveWorkflowDefRequest {
 }
 
 message ArchiveWorkflowDefResponse {}
+
+message DeleteWorkflowDefRequest {
+  string id = 1;
+  string actor_user_id = 2;
+}
+
+message DeleteWorkflowDefResponse {}

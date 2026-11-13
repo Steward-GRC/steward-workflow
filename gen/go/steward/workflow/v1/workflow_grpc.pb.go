@@ -38,6 +38,7 @@ const (
 	WorkflowService_CreateWorkflowDef_FullMethodName         = "/steward.workflow.v1.WorkflowService/CreateWorkflowDef"
 	WorkflowService_UpdateWorkflowDef_FullMethodName         = "/steward.workflow.v1.WorkflowService/UpdateWorkflowDef"
 	WorkflowService_ArchiveWorkflowDef_FullMethodName        = "/steward.workflow.v1.WorkflowService/ArchiveWorkflowDef"
+	WorkflowService_DeleteWorkflowDef_FullMethodName         = "/steward.workflow.v1.WorkflowService/DeleteWorkflowDef"
 	WorkflowService_ResolveWorkflow_FullMethodName           = "/steward.workflow.v1.WorkflowService/ResolveWorkflow"
 )
 
@@ -114,6 +115,15 @@ type WorkflowServiceClient interface {
 	CreateWorkflowDef(ctx context.Context, in *CreateWorkflowDefRequest, opts ...grpc.CallOption) (*CreateWorkflowDefResponse, error)
 	UpdateWorkflowDef(ctx context.Context, in *UpdateWorkflowDefRequest, opts ...grpc.CallOption) (*UpdateWorkflowDefResponse, error)
 	ArchiveWorkflowDef(ctx context.Context, in *ArchiveWorkflowDefRequest, opts ...grpc.CallOption) (*ArchiveWorkflowDefResponse, error)
+	// DeleteWorkflowDef removes a definition and all its kept versions in one
+	// transaction. It refuses a definition that any approval run ever pinned
+	// (finished runs keep reading it; archive it instead) or that a policy
+	// override points at. A category whose default it is lives in core; the
+	// caller checks that first. Refusals:
+	//
+	//	6013 WORKFLOW_DEF_IN_USE    (FailedPrecondition; metadata run_count, override_count)
+	//	6014 WORKFLOW_DEF_NOT_FOUND (NotFound; metadata id)
+	DeleteWorkflowDef(ctx context.Context, in *DeleteWorkflowDefRequest, opts ...grpc.CallOption) (*DeleteWorkflowDefResponse, error)
 	// ResolveWorkflow returns the workflow a policy would be submitted under:
 	// its own override, else its home category's default. Empty means none, so
 	// the policy can't be submitted.
@@ -288,6 +298,16 @@ func (c *workflowServiceClient) ArchiveWorkflowDef(ctx context.Context, in *Arch
 	return out, nil
 }
 
+func (c *workflowServiceClient) DeleteWorkflowDef(ctx context.Context, in *DeleteWorkflowDefRequest, opts ...grpc.CallOption) (*DeleteWorkflowDefResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteWorkflowDefResponse)
+	err := c.cc.Invoke(ctx, WorkflowService_DeleteWorkflowDef_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *workflowServiceClient) ResolveWorkflow(ctx context.Context, in *ResolveWorkflowRequest, opts ...grpc.CallOption) (*ResolveWorkflowResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ResolveWorkflowResponse)
@@ -371,6 +391,15 @@ type WorkflowServiceServer interface {
 	CreateWorkflowDef(context.Context, *CreateWorkflowDefRequest) (*CreateWorkflowDefResponse, error)
 	UpdateWorkflowDef(context.Context, *UpdateWorkflowDefRequest) (*UpdateWorkflowDefResponse, error)
 	ArchiveWorkflowDef(context.Context, *ArchiveWorkflowDefRequest) (*ArchiveWorkflowDefResponse, error)
+	// DeleteWorkflowDef removes a definition and all its kept versions in one
+	// transaction. It refuses a definition that any approval run ever pinned
+	// (finished runs keep reading it; archive it instead) or that a policy
+	// override points at. A category whose default it is lives in core; the
+	// caller checks that first. Refusals:
+	//
+	//	6013 WORKFLOW_DEF_IN_USE    (FailedPrecondition; metadata run_count, override_count)
+	//	6014 WORKFLOW_DEF_NOT_FOUND (NotFound; metadata id)
+	DeleteWorkflowDef(context.Context, *DeleteWorkflowDefRequest) (*DeleteWorkflowDefResponse, error)
 	// ResolveWorkflow returns the workflow a policy would be submitted under:
 	// its own override, else its home category's default. Empty means none, so
 	// the policy can't be submitted.
@@ -432,6 +461,9 @@ func (UnimplementedWorkflowServiceServer) UpdateWorkflowDef(context.Context, *Up
 }
 func (UnimplementedWorkflowServiceServer) ArchiveWorkflowDef(context.Context, *ArchiveWorkflowDefRequest) (*ArchiveWorkflowDefResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ArchiveWorkflowDef not implemented")
+}
+func (UnimplementedWorkflowServiceServer) DeleteWorkflowDef(context.Context, *DeleteWorkflowDefRequest) (*DeleteWorkflowDefResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteWorkflowDef not implemented")
 }
 func (UnimplementedWorkflowServiceServer) ResolveWorkflow(context.Context, *ResolveWorkflowRequest) (*ResolveWorkflowResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ResolveWorkflow not implemented")
@@ -745,6 +777,24 @@ func _WorkflowService_ArchiveWorkflowDef_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowService_DeleteWorkflowDef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteWorkflowDefRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowServiceServer).DeleteWorkflowDef(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowService_DeleteWorkflowDef_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowServiceServer).DeleteWorkflowDef(ctx, req.(*DeleteWorkflowDefRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WorkflowService_ResolveWorkflow_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ResolveWorkflowRequest)
 	if err := dec(in); err != nil {
@@ -833,6 +883,10 @@ var WorkflowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ArchiveWorkflowDef",
 			Handler:    _WorkflowService_ArchiveWorkflowDef_Handler,
+		},
+		{
+			MethodName: "DeleteWorkflowDef",
+			Handler:    _WorkflowService_DeleteWorkflowDef_Handler,
 		},
 		{
 			MethodName: "ResolveWorkflow",

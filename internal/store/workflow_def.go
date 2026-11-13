@@ -8,6 +8,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	postgres "github.com/Bugs5382/go-postgres"
@@ -128,6 +129,71 @@ func (s *WorkflowDefStore) Update(ctx context.Context, id string, wd builder.Wor
 func (s *WorkflowDefStore) Archive(ctx context.Context, id string) error {
 	if _, err := s.db.Querier().Exec(ctx, `UPDATE workflow_defs SET archived_at = now() WHERE id = $1`, id); err != nil {
 		return fmt.Errorf("archive workflow_def %q: %w", id, err)
+	}
+	return nil
+}
+
+// ErrWorkflowDefNotFound is returned by Delete when no definition has the id.
+var ErrWorkflowDefNotFound = errors.New("workflow definition not found")
+
+// DefInUseError is returned by Delete when the definition can't go: Runs is
+// how many approval runs, finished ones included, pinned it, and Overrides how
+// many policy overrides point at it.
+type DefInUseError struct {
+	DefID     string
+	Runs      int
+	Overrides int
+}
+
+func (e *DefInUseError) Error() string {
+	return fmt.Sprintf("workflow definition %q is in use: %d approval runs, %d policy overrides", e.DefID, e.Runs, e.Overrides)
+}
+
+// Delete removes a definition and all its kept versions in one transaction.
+//
+// It refuses (DefInUseError) while any approval run ever pinned the definition,
+// because finished runs keep reading the definition and version they ran on,
+// and while a policy override points at it, because the database would null
+// the override and the policy would quietly stop needing approval. Archive is
+// how a used definition is retired. A category whose default it is lives in
+// core; the gateway checks that before calling.
+//
+// The definition row is locked first, so a concurrent Update waits and a
+// concurrent submit (whose run row takes a key-share lock on it through its
+// foreign key) either lands first and is counted or waits and fails.
+func (s *WorkflowDefStore) Delete(ctx context.Context, id string) error {
+	err := s.db.RunInTx(ctx, func(tx pgx.Tx) error {
+		var locked string
+		if err := tx.QueryRow(ctx, `SELECT id FROM workflow_defs WHERE id = $1 FOR UPDATE`, id).Scan(&locked); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrWorkflowDefNotFound
+			}
+			return fmt.Errorf("lock workflow_def %q: %w", id, err)
+		}
+		inUse := &DefInUseError{DefID: id}
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM approval_runs WHERE workflow_def_id = $1`, id).Scan(&inUse.Runs); err != nil {
+			return fmt.Errorf("count runs of workflow_def %q: %w", id, err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM policy_workflow_overrides WHERE workflow_def_id = $1`, id).Scan(&inUse.Overrides); err != nil {
+			return fmt.Errorf("count overrides of workflow_def %q: %w", id, err)
+		}
+		if inUse.Runs > 0 || inUse.Overrides > 0 {
+			return inUse
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM workflow_def_versions WHERE def_id = $1`, id); err != nil {
+			return fmt.Errorf("delete versions of workflow_def %q: %w", id, err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM workflow_defs WHERE id = $1`, id); err != nil {
+			return fmt.Errorf("delete workflow_def %q: %w", id, err)
+		}
+		return nil
+	})
+	if err != nil {
+		var inUse *DefInUseError
+		if errors.As(err, &inUse) || errors.Is(err, ErrWorkflowDefNotFound) {
+			return err
+		}
+		return fmt.Errorf("delete workflow_def %q: %w", id, err)
 	}
 	return nil
 }

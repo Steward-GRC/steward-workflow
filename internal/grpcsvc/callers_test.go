@@ -102,3 +102,14 @@ func TestCallerPolicyLetsOnlyTheGatewayListDecidedApprovals(t *testing.T) {
 	got := CallerPolicy()[workflowv1.WorkflowService_ListDecidedApprovals_FullMethodName]
 	require.Equal(t, map[string]workloadidentity.Access{CallerGateway: workloadidentity.OnBehalf}, got)
 }
+
+func TestCallerPolicyDeleteWorkflowDefIsGatewayOnly(t *testing.T) {
+	const m = workflowv1.WorkflowService_DeleteWorkflowDef_FullMethodName
+	a, ok := CallerPolicy().Lookup(m, CallerGateway)
+	require.True(t, ok)
+	require.Equal(t, workloadidentity.OnBehalf, a, "the gateway passes the admin's actor")
+	for _, c := range []string{CallerIdentity, "core", "obligations", "reporting"} {
+		_, ok := CallerPolicy().Lookup(m, c)
+		require.False(t, ok, "%s may not delete a workflow", c)
+	}
+}
