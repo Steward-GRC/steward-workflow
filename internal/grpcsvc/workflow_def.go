@@ -59,11 +59,15 @@ func (s *WorkflowServer) CreateWorkflowDef(ctx context.Context, req *workflowv1.
 	if len(req.GetStages()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "at least one stage is required")
 	}
+	stages := stagesToBuilder(req.GetStages())
+	if err := validateVetoUsers(ctx, s.log, stages); err != nil {
+		return nil, err
+	}
 	ds := s.mustDefStore()
 	id, err := ds.Create(ctx, builder.WorkflowDef{
 		Name:         req.GetName(),
 		Description:  req.GetDescription(),
-		Stages:       stagesToBuilder(req.GetStages()),
+		Stages:       stages,
 		AuthorUserID: req.GetActorUserId(),
 	})
 	if err != nil {
@@ -89,10 +93,14 @@ func (s *WorkflowServer) UpdateWorkflowDef(ctx context.Context, req *workflowv1.
 	if len(req.GetStages()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "at least one stage is required")
 	}
+	stages := stagesToBuilder(req.GetStages())
+	if err := validateVetoUsers(ctx, s.log, stages); err != nil {
+		return nil, err
+	}
 	updated, err := s.mustDefStore().Update(ctx, req.GetId(), builder.WorkflowDef{
 		Name:         req.GetName(),
 		Description:  req.GetDescription(),
-		Stages:       stagesToBuilder(req.GetStages()),
+		Stages:       stages,
 		AuthorUserID: req.GetActorUserId(),
 	})
 	if err != nil {
@@ -115,9 +123,22 @@ func (s *WorkflowServer) ArchiveWorkflowDef(ctx context.Context, req *workflowv1
 	return &workflowv1.ArchiveWorkflowDefResponse{}, nil
 }
 
-// SetWorkflowVetoEnabled opts a workflow in or out of veto seats. Only a
-// workflow admin may; the opt-in is off by default. A run keeps the opt-in it
-// was submitted under, so switching it never changes a review in flight.
+// validateVetoUsers refuses a save in which a stage names a veto person who is
+// in none of its explicit approver lists (steward-workflow#64).
+func validateVetoUsers(ctx context.Context, lg log.Logger, stages []builder.Stage) error {
+	for i, st := range stages {
+		if err := st.ValidateVetoUsers(); err != nil {
+			lg.Ctx(ctx).Warn("workflow def save refused: veto person is not an approver",
+				log.F("stage_index", i), log.F("veto_named", len(st.VetoUserIDs)))
+			return status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
+	return nil
+}
+
+// SetWorkflowVetoEnabled stores the old workflow-wide veto flag. Only a
+// workflow admin may. The flag is deprecated and gates nothing: a stage's
+// veto_user_ids apply by themselves. It stays until the cleanup change.
 func (s *WorkflowServer) SetWorkflowVetoEnabled(ctx context.Context, req *workflowv1.SetWorkflowVetoEnabledRequest) (*workflowv1.SetWorkflowVetoEnabledResponse, error) {
 	lg := s.log.Ctx(ctx).With(log.F("workflow_def_id", req.GetId()), log.F("actor_user_id", req.GetActorUserId()))
 	lg.Debug("set veto enabled: enter", log.F("enabled", req.GetEnabled()))
@@ -197,8 +218,7 @@ func stageToProto(s builder.Stage) *workflowv1.WorkflowStage {
 		SlaDays:             toInt32(s.SLADays),
 		RejectOnSlaBreach:   s.RejectOnSLABreach,
 		PinnedLast:          s.PinnedLast,
-		VetoApproverIds:     s.VetoApproverIDs,
-		VetoGroupIds:        s.VetoGroupIDs,
+		VetoUserIds:         s.VetoUserIDs,
 	}
 }
 
@@ -228,8 +248,7 @@ func stageFromProto(ps *workflowv1.WorkflowStage) builder.Stage {
 		SLADays:             int(ps.GetSlaDays()),
 		RejectOnSLABreach:   ps.GetRejectOnSlaBreach(),
 		PinnedLast:          ps.GetPinnedLast(),
-		VetoApproverIDs:     ps.GetVetoApproverIds(),
-		VetoGroupIDs:        ps.GetVetoGroupIds(),
+		VetoUserIDs:         ps.GetVetoUserIds(),
 	}
 }
 

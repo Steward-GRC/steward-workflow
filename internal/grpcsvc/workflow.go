@@ -246,9 +246,6 @@ func (s *WorkflowServer) Submit(ctx context.Context, req *workflowv1.SubmitReque
 		"submitted_by":      req.GetSubmittedBy(),
 		"workflow_def_id":   defID,
 		"workflow_version":  wd.Version,
-		// Pinned at submit: the stage assigner marks veto seats only when the
-		// workflow had opted in then (steward-workflow#26).
-		"veto_enabled": wd.VetoEnabled,
 	}
 	for i, stage := range wd.Stages {
 		pool := eligibility.StagePool(stage, req.GetAncestorCategoryIds())

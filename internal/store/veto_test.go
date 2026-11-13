@@ -63,6 +63,25 @@ func TestWorkflowDefStore_StageVetoMarksRoundTrip(t *testing.T) {
 	require.Equal(t, []string{"g1"}, got.Stages[0].VetoGroupIDs)
 }
 
+// A stage's veto people ride the stage JSON (steward-workflow#64).
+func TestWorkflowDefStore_StageVetoPeopleRoundTrip(t *testing.T) {
+	s := store.NewWorkflowDefStore(newTestDB(t))
+	ctx := context.Background()
+	id, err := s.Create(ctx, builder.WorkflowDef{
+		Name: "People",
+		Stages: []builder.Stage{
+			{Name: "s", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1", "u2"}, VetoUserIDs: []string{"u1", "u2"}},
+			{Name: "t", Quorum: builder.QuorumAny, ApproverIDs: []string{"u1"}},
+		},
+	})
+	require.NoError(t, err)
+	got, err := s.Get(ctx, id)
+	require.NoError(t, err)
+	require.Equal(t, []string{"u1", "u2"}, got.Stages[0].VetoUserIDs)
+	require.Empty(t, got.Stages[1].VetoUserIDs)
+	require.False(t, got.VetoEnabled, "the people apply with the old switch off")
+}
+
 // Mock: "carries the marks into a run only when the workflow has opted in"
 // (the seat half): the mark is stored on the seat and survives a reset.
 func TestSeats_VetoMarkIsStoredOnTheSeat(t *testing.T) {

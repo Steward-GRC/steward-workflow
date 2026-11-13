@@ -6,7 +6,6 @@ package saga
 import (
 	"context"
 	"fmt"
-	"slices"
 	"time"
 
 	log "github.com/Bugs5382/go-log"
@@ -148,8 +147,12 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 		return nil
 	}
 
+	// The approver pool is who the stage seats before any owner backstop joins:
+	// the individuals and group members the access filter left. Only people in
+	// it can hold a veto.
+	pool := vetoPool(individuals, units)
 	if a.filter != nil {
-		individuals, units, err = a.applyFilter(ctx, pvID, stage, individuals, units)
+		individuals, units, pool, err = a.applyFilter(ctx, pvID, stage, individuals, units)
 		if err != nil {
 			return fmt.Errorf("assign stage %d: access filter: %w", stageIndex, err)
 		}
@@ -159,19 +162,26 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 		}
 	}
 
-	// The marks reach the run only when the workflow had opted in at submit.
-	vetoOn, _ := run.Inputs["veto_enabled"].(bool)
+	// The stage's named veto people who are in the pool hold the veto on every
+	// seat they hold. A named person outside the pool holds nothing and is not
+	// an error. Owners who joined only to make up a quorum, site admin and root
+	// are not in the pool, so they never hold one. No workflow switch gates this.
+	holders, dropped := vetoHolders(stage.VetoUserIDs, pool)
+	if len(dropped) > 0 {
+		lg.Debug("assign_stage: veto people not in the approver pool hold no veto",
+			log.F("policy_version_id", pvID), log.F("not_seated", len(dropped)))
+	}
 	var plan []seatPlan
 	for _, uid := range individuals {
-		plan = append(plan, seatPlan{userID: uid, veto: vetoOn && slices.Contains(stage.VetoApproverIDs, uid)})
+		plan = append(plan, seatPlan{userID: uid, veto: holders[uid]})
 	}
 	for _, u := range stage.GroupUnits {
 		for _, m := range units[u.GroupID] {
-			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID, veto: vetoOn && slices.Contains(stage.VetoGroupIDs, u.GroupID)})
+			plan = append(plan, seatPlan{userID: m, groupID: u.GroupID, veto: holders[m]})
 		}
 	}
-	lg.Debug("assign_stage: veto marks", log.F("policy_version_id", pvID), log.F("veto_enabled", vetoOn),
-		log.F("veto_seats", countVeto(plan)))
+	lg.Debug("assign_stage: veto marks", log.F("policy_version_id", pvID),
+		log.F("veto_named", len(stage.VetoUserIDs)), log.F("veto_holders", len(holders)), log.F("veto_seats", countVeto(plan)))
 
 	now := time.Now().UTC()
 	slaDeadline, reminder := a.opts.StageSLA(stage, now)
@@ -229,14 +239,14 @@ func (a *StageAssigner) AssignStage(ctx context.Context, run domain.SagaRun, sta
 // applyFilter drops individuals and group members the category rules don't let
 // approve the policy. When what is left can't meet the stage quorum, the
 // category's owners and root join as individual seats.
-func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage builder.Stage, individuals []string, units map[string][]string) ([]string, map[string][]string, error) {
+func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage builder.Stage, individuals []string, units map[string][]string) ([]string, map[string][]string, map[string]bool, error) {
 	candidates := append([]string(nil), individuals...)
 	for _, u := range stage.GroupUnits {
 		candidates = append(candidates, units[u.GroupID]...)
 	}
 	eligible, err := a.filter.Eligible(ctx, pvID, dedupe(candidates))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	approvable := make(map[string]bool, len(eligible))
 	for _, u := range eligible {
@@ -260,6 +270,8 @@ func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage buil
 			votes++
 		}
 	}
+	// Taken before the backstop joins: the veto belongs to the pool only.
+	pool := vetoPool(individuals, filtered)
 	if !access.MeetsQuorum(string(stage.Quorum), stage.QuorumN, votes) {
 		seen := make(map[string]bool, len(individuals))
 		for _, u := range individuals {
@@ -267,7 +279,7 @@ func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage buil
 		}
 		backstop, err := a.filter.Backstop(ctx, pvID)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		for _, o := range backstop {
 			if !seen[o] {
@@ -276,7 +288,35 @@ func (a *StageAssigner) applyFilter(ctx context.Context, pvID string, stage buil
 			}
 		}
 	}
-	return individuals, filtered, nil
+	return individuals, filtered, pool, nil
+}
+
+// vetoPool is the people a stage seats from its own approver lists: the
+// individuals and every group unit's members.
+func vetoPool(individuals []string, units map[string][]string) map[string]bool {
+	pool := make(map[string]bool, len(individuals))
+	for _, u := range individuals {
+		pool[u] = true
+	}
+	for _, members := range units {
+		for _, m := range members {
+			pool[m] = true
+		}
+	}
+	return pool
+}
+
+// vetoHolders keeps the named people who are in the pool, and answers the rest.
+func vetoHolders(named []string, pool map[string]bool) (holders map[string]bool, dropped []string) {
+	holders = make(map[string]bool, len(named))
+	for _, id := range named {
+		if pool[id] {
+			holders[id] = true
+		} else {
+			dropped = append(dropped, id)
+		}
+	}
+	return holders, dropped
 }
 
 func countVeto(plan []seatPlan) int {

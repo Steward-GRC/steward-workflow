@@ -29,13 +29,20 @@ import (
 // testcontainers Postgres.
 func newTestDB(t *testing.T) *pg.DB {
 	t.Helper()
-	if dsn := os.Getenv("DATABASE_TEST_DSN"); dsn != "" {
-		return newTestDBFromEnv(t, dsn)
-	}
-	return newTestDBFromContainer(t)
+	return newTestDBIn(t, "../../migrations")
 }
 
-func newTestDBFromEnv(t *testing.T, baseDSN string) *pg.DB {
+// newTestDBIn is newTestDB over the migrations in dir, so a test can stop at an
+// older schema and apply a later migration by hand.
+func newTestDBIn(t *testing.T, dir string) *pg.DB {
+	t.Helper()
+	if dsn := os.Getenv("DATABASE_TEST_DSN"); dsn != "" {
+		return newTestDBFromEnv(t, dsn, dir)
+	}
+	return newTestDBFromContainer(t, dir)
+}
+
+func newTestDBFromEnv(t *testing.T, baseDSN, dir string) *pg.DB {
 	t.Helper()
 	ctx := context.Background()
 
@@ -57,7 +64,7 @@ func newTestDBFromEnv(t *testing.T, baseDSN string) *pg.DB {
 	u.Path = "/" + dbName
 	testDSN := u.String()
 
-	migrationsDir, err := filepath.Abs("../../migrations")
+	migrationsDir, err := filepath.Abs(dir)
 	if err != nil {
 		t.Fatalf("resolve migrations dir: %v", err)
 	}
@@ -83,7 +90,7 @@ func newTestDBFromEnv(t *testing.T, baseDSN string) *pg.DB {
 	return pool
 }
 
-func newTestDBFromContainer(t *testing.T) *pg.DB {
+func newTestDBFromContainer(t *testing.T, dir string) *pg.DB {
 	t.Helper()
 	ctx := context.Background()
 
@@ -109,7 +116,7 @@ func newTestDBFromContainer(t *testing.T) *pg.DB {
 		t.Fatalf("get connection string: %v", err)
 	}
 
-	migrationsDir, err := filepath.Abs("../../migrations")
+	migrationsDir, err := filepath.Abs(dir)
 	if err != nil {
 		t.Fatalf("resolve migrations dir: %v", err)
 	}

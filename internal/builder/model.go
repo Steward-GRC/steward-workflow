@@ -5,7 +5,10 @@
 // the compiler that turns a definition into a go-saga workflow.
 package builder
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Quorum controls how many votes a stage needs before it advances.
 type Quorum string
@@ -47,9 +50,16 @@ type Stage struct {
 	// group seats, separate from any individual seat they also hold.
 	GroupUnits []GroupUnit `json:"group_units,omitempty"`
 
-	// VetoApproverIDs marks individual approvers whose reject ends the version
-	// at once. VetoGroupIDs marks group seats the same way. The marks reach a
-	// run only when the workflow has VetoEnabled.
+	// VetoUserIDs names the people on this stage whose single reject ends the
+	// version at once. Each must be in the stage's explicit approver lists
+	// (ValidateVetoUsers); at submit only those seated in the approver pool
+	// hold the veto. There is no workflow-wide switch.
+	VetoUserIDs []string `json:"veto_user_ids,omitempty"`
+
+	// VetoApproverIDs and VetoGroupIDs are the old per-stage marks. They are
+	// still read from stored JSON and written back as stored, but they gate
+	// nothing and are not accepted from the API any more; migration 0005 moved
+	// them into VetoUserIDs. Removed in the cleanup change.
 	VetoApproverIDs []string `json:"veto_approver_ids,omitempty"`
 	VetoGroupIDs    []string `json:"veto_group_ids,omitempty"`
 }
@@ -86,6 +96,42 @@ func (s Stage) Validate() error {
 	return nil
 }
 
+// ValidateVetoUsers checks the save-time rule for a stage's veto people: each
+// must appear in the stage's explicit approver lists (ApproverIDs, any
+// ApproversByCategory list, or a group unit's Members). Someone in none of them
+// could never be seated, and site admin or root does not count. For a pool
+// derived from the policy's category or from a group the check is at seating,
+// where a named person who is not seated simply holds no veto.
+func (s Stage) ValidateVetoUsers() error {
+	if len(s.VetoUserIDs) == 0 {
+		return nil
+	}
+	named := make(map[string]bool)
+	for _, id := range s.ApproverIDs {
+		named[id] = true
+	}
+	for _, ids := range s.ApproversByCategory {
+		for _, id := range ids {
+			named[id] = true
+		}
+	}
+	for _, u := range s.GroupUnits {
+		for _, id := range u.Members {
+			named[id] = true
+		}
+	}
+	var strangers []string
+	for _, id := range s.VetoUserIDs {
+		if !named[id] {
+			strangers = append(strangers, id)
+		}
+	}
+	if len(strangers) > 0 {
+		return fmt.Errorf("stage %q: a veto person must be one of the stage's approvers (%s)", s.Name, strings.Join(strangers, ", "))
+	}
+	return nil
+}
+
 // WorkflowDef is the admin-authored approval workflow, compiled to a saga
 // workflow at submit.
 type WorkflowDef struct {
@@ -98,8 +144,9 @@ type WorkflowDef struct {
 	// AuthorUserID created or last edited the definition, and may reassign
 	// its runs' approvals as the workflow author.
 	AuthorUserID string `json:"author_user_id,omitempty"`
-	// VetoEnabled is the workflow's opt-in to veto seats; off by default. It
-	// has its own column and call, so saving stages never changes it.
+	// VetoEnabled is the old workflow-wide veto switch. It is still stored (own
+	// column, own call) but gates nothing: a stage's VetoUserIDs apply by
+	// themselves. Removed in the cleanup change.
 	VetoEnabled bool `json:"-"`
 }
 

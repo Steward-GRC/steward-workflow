@@ -115,8 +115,9 @@ type WorkflowServiceClient interface {
 	CreateWorkflowDef(ctx context.Context, in *CreateWorkflowDefRequest, opts ...grpc.CallOption) (*CreateWorkflowDefResponse, error)
 	UpdateWorkflowDef(ctx context.Context, in *UpdateWorkflowDefRequest, opts ...grpc.CallOption) (*UpdateWorkflowDefResponse, error)
 	ArchiveWorkflowDef(ctx context.Context, in *ArchiveWorkflowDefRequest, opts ...grpc.CallOption) (*ArchiveWorkflowDefResponse, error)
-	// SetWorkflowVetoEnabled opts a workflow in or out of veto seats (admin
-	// only). A run carries the opt-in it was submitted under.
+	// SetWorkflowVetoEnabled stores a workflow's old veto opt-in (admin only).
+	// Deprecated: the flag gates nothing; a stage's veto_user_ids apply by
+	// themselves. Removed in the cleanup change.
 	SetWorkflowVetoEnabled(ctx context.Context, in *SetWorkflowVetoEnabledRequest, opts ...grpc.CallOption) (*SetWorkflowVetoEnabledResponse, error)
 	// ResolveWorkflow returns the workflow a policy would be submitted under:
 	// its own override, else its home category's default. Empty means none, so
@@ -385,8 +386,9 @@ type WorkflowServiceServer interface {
 	CreateWorkflowDef(context.Context, *CreateWorkflowDefRequest) (*CreateWorkflowDefResponse, error)
 	UpdateWorkflowDef(context.Context, *UpdateWorkflowDefRequest) (*UpdateWorkflowDefResponse, error)
 	ArchiveWorkflowDef(context.Context, *ArchiveWorkflowDefRequest) (*ArchiveWorkflowDefResponse, error)
-	// SetWorkflowVetoEnabled opts a workflow in or out of veto seats (admin
-	// only). A run carries the opt-in it was submitted under.
+	// SetWorkflowVetoEnabled stores a workflow's old veto opt-in (admin only).
+	// Deprecated: the flag gates nothing; a stage's veto_user_ids apply by
+	// themselves. Removed in the cleanup change.
 	SetWorkflowVetoEnabled(context.Context, *SetWorkflowVetoEnabledRequest) (*SetWorkflowVetoEnabledResponse, error)
 	// ResolveWorkflow returns the workflow a policy would be submitted under:
 	// its own override, else its home category's default. Empty means none, so
